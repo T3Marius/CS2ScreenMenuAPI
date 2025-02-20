@@ -22,15 +22,8 @@ namespace CS2ScreenMenuAPI.Internal
             float backgroundWidth = 0.15f
         )
         {
-            Console.WriteLine($"[WorldTextManager] Creating text for player {player.PlayerName}");
-
             // Use our extension method to get (or create) the custom view.
             CCSGOViewModel? viewmodel = player.EnsureCustomView(0);
-            if (viewmodel == null)
-            {
-                Console.WriteLine("[WorldTextManager] Failed to get viewmodel");
-                return null;
-            }
 
             // Use the player's pawn for positioning.
             CCSPlayerPawn pawn = player.PlayerPawn.Value!;
