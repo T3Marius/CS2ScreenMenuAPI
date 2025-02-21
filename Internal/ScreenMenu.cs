@@ -69,7 +69,14 @@ namespace CS2ScreenMenuAPI.Internal
 
         public void Open(CCSPlayerController player)
         {
-            MenuAPI.OpenMenu(_plugin, player, this);
+            if (IsSubMenu)
+            {
+                MenuAPI.OpenSubMenu(_plugin, player, this);
+            }
+            else
+            {
+                MenuAPI.OpenMenu(_plugin, player, this);
+            }
         }
     }
 }

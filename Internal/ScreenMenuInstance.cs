@@ -4,6 +4,7 @@ using CounterStrikeSharp.API.Core;
 using CS2ScreenMenuAPI.Enums;
 using CS2ScreenMenuAPI.Config;
 using CS2ScreenMenuAPI.Interfaces;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 
 namespace CS2ScreenMenuAPI.Internal
 {
@@ -26,7 +27,7 @@ namespace CS2ScreenMenuAPI.Internal
         private readonly Listeners.CheckTransmit _checkTransmitDelegate;
         private readonly Listeners.OnEntityDeleted _onEntityDeletedDelegate;
         private readonly BasePlugin.GameEventHandler<EventRoundStart> _onRoundStartDelegate;
-
+        private readonly BasePlugin.GameEventHandler<EventRoundEnd> _onRoundEndDelegate;
         private static bool _keyCommandsRegistered = false;
 
         public ScreenMenuInstance(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
@@ -46,10 +47,12 @@ namespace CS2ScreenMenuAPI.Internal
             _onTickDelegate = new Listeners.OnTick(Update);
             _checkTransmitDelegate = new Listeners.CheckTransmit(CheckTransmitListener);
             _onEntityDeletedDelegate = new Listeners.OnEntityDeleted(OnEntityDeleted);
+            _onRoundEndDelegate = new BasePlugin.GameEventHandler<EventRoundEnd>(OnRoundEnd);
             _onRoundStartDelegate = new BasePlugin.GameEventHandler<EventRoundStart>(OnRoundStart);
 
+
             RegisterOnKeyPress();
-            RegisterListeners();
+            RegisterListenersNEvents();
         }
 
         private void RegisterOnKeyPress()
@@ -72,12 +75,13 @@ namespace CS2ScreenMenuAPI.Internal
             }
         }
 
-        private void RegisterListeners()
+        private void RegisterListenersNEvents()
         {
             _plugin.RegisterListener<Listeners.OnTick>(_onTickDelegate);
             _plugin.RegisterListener<Listeners.CheckTransmit>(_checkTransmitDelegate);
             _plugin.RegisterListener<Listeners.OnEntityDeleted>(_onEntityDeletedDelegate);
             _plugin.RegisterEventHandler<EventRoundStart>(_onRoundStartDelegate, HookMode.Pre);
+            _plugin.RegisterEventHandler<EventRoundEnd>(_onRoundEndDelegate, HookMode.Pre);
         }
 
         private void OnEntityDeleted(CEntityInstance entity)
@@ -117,7 +121,24 @@ namespace CS2ScreenMenuAPI.Internal
             _plugin.AddTimer(0.1f, RecreateHud);
             return HookResult.Continue;
         }
+        private HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)
+        {
+            if (MenuAPI.GetActiveMenu(_player) == this)
+            {
+                _plugin.AddTimer(0.1f, () =>
+                {
+                    ScreenMenu menu = _menu;
+                    Close();
+                    if (menu.IsSubMenu)
+                        MenuAPI.OpenSubMenu(_plugin, _player, menu);
+                    else
+                        MenuAPI.OpenMenu(_plugin, _player, menu);
+                });
+            }
+            return HookResult.Continue;
+        }
 
+        private IntPtr _hudObserverId = IntPtr.Zero;
         private void Update()
         {
             if (!CCSPlayer.IsValidPlayer(_player))
@@ -128,6 +149,25 @@ namespace CS2ScreenMenuAPI.Internal
 
             if (MenuAPI.GetActiveMenu(_player) != this)
                 return;
+
+            var observerServices = _player.Pawn.Value?.ObserverServices;
+            if (observerServices != null)
+            {
+                var currentObserverPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
+                var currentObserverId = currentObserverPawn?.Handle ?? IntPtr.Zero;
+
+                if (currentObserverId != _hudObserverId)
+                {
+                    if (_hudText != null && _hudText.IsValid)
+                    {
+                        _hudText.Enabled = false;
+                        _hudText.AcceptInput("Kill", _hudText);
+                        _hudText = null;
+                    }
+                    _hudObserverId = currentObserverId;
+                    Display();
+                }
+            }
 
             var currentButtons = _player.Buttons;
 
@@ -141,6 +181,8 @@ namespace CS2ScreenMenuAPI.Internal
             HandleButtons(currentButtons);
             _oldButtons = currentButtons;
         }
+
+
 
         private void MoveSelection(int direction)
         {
@@ -267,14 +309,29 @@ namespace CS2ScreenMenuAPI.Internal
 
         private void BuildOptionsList(StringBuilder builder, int currentOffset, int selectable)
         {
+            int enabledCount = 0;
             for (int i = 0; i < selectable; i++)
             {
                 var option = _menu.MenuOptions[currentOffset + i];
-                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i) ? _config.Translations.SelectPrefix : "";
-                string displayText = option.Disabled ? $"{option.Text} {_config.Translations.DisabledOption}" : option.Text;
-                builder.AppendLine($"{prefix}{i + 1}. {displayText}");
+                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i)
+                    ? _config.Translations.SelectPrefix
+                    : "";
+                string displayText = option.Disabled
+                    ? $"{option.Text} {_config.Translations.DisabledOption}"
+                    : option.Text;
+
+                if (option.Disabled)
+                {
+                    builder.AppendLine($"{prefix}{displayText}");
+                }
+                else
+                {
+                    enabledCount++;
+                    builder.AppendLine($"{prefix}{enabledCount}. {displayText}");
+                }
             }
         }
+
 
         private void BuildNavigationOptions(StringBuilder builder, int selectable)
         {
@@ -574,30 +631,37 @@ namespace CS2ScreenMenuAPI.Internal
                 return;
             }
 
-            int desiredValue = key;
-            int optionIndex = (CurrentPage * NUM_PER_PAGE) + desiredValue - 1;
-            if (optionIndex >= 0 && optionIndex < _menu.MenuOptions.Count)
+            int targetEnabledIndex = key;
+            int currentOffset = CurrentPage * NUM_PER_PAGE;
+            int enabledCount = 0;
+            for (int i = 0; i < Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset); i++)
             {
-                var option = _menu.MenuOptions[optionIndex];
+                var option = _menu.MenuOptions[currentOffset + i];
                 if (!option.Disabled)
                 {
-                    option.OnSelect(_player, option);
-                    switch (_menu.PostSelectAction)
+                    enabledCount++;
+                    if (enabledCount == targetEnabledIndex)
                     {
-                        case PostSelectAction.Close:
-                            Close();
-                            break;
-                        case PostSelectAction.Reset:
-                            Reset();
-                            break;
-                        case PostSelectAction.Nothing:
-                            break;
-                        default:
-                            throw new NotImplementedException("The specified Select Action is not supported!");
+                        option.OnSelect(_player, option);
+                        switch (_menu.PostSelectAction)
+                        {
+                            case PostSelectAction.Close:
+                                Close();
+                                break;
+                            case PostSelectAction.Reset:
+                                Reset();
+                                break;
+                            case PostSelectAction.Nothing:
+                                break;
+                            default:
+                                throw new NotImplementedException("The specified Select Action is not supported!");
+                        }
+                        return;
                     }
                 }
             }
         }
+
 
         public void Reset()
         {

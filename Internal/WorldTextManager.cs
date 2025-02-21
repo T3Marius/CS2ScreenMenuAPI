@@ -70,11 +70,9 @@ namespace CS2ScreenMenuAPI.Internal
                 }
             }
 
-            Console.WriteLine("[Create] Creating point_worldtext entity");
             CPointWorldText worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
             if (worldText == null)
             {
-                Console.WriteLine("[Create] Failed: couldn't create point_worldtext entity");
                 return null;
             }
             worldText.MessageText = text;
@@ -119,7 +117,8 @@ namespace CS2ScreenMenuAPI.Internal
                 Z = 90 - eyeAngles.X,
                 X = 0
             };
-
+            if (pawn == effectiveOwner)
+                return null;
             worldText.DispatchSpawn();
 
             var finalPos = pawn.AbsOrigin! + offset + new Vector(0, 0, pawn.ViewOffset.Z);

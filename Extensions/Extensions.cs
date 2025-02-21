@@ -37,5 +37,6 @@ namespace CS2ScreenMenuAPI.Extensions
                 : ColorTranslator.ToHtml(value);
             writer.WriteStringValue(colorString);
         }
+        
     }
 }
