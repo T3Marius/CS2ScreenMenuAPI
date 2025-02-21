@@ -22,13 +22,61 @@ namespace CS2ScreenMenuAPI.Internal
             float backgroundWidth = 0.15f
         )
         {
-            // Use our extension method to get (or create) the custom view.
+
             CCSGOViewModel? viewmodel = player.EnsureCustomView(0);
+            if (viewmodel == null)
+            {
+                return null;
+            }
 
-            // Use the player's pawn for positioning.
-            CCSPlayerPawn pawn = player.PlayerPawn.Value!;
+            var pawn = player.Pawn.Value!;
+            if (pawn == null)
+            {
+                return null;
+            }
 
+            bool isSpectating = false;
+            CCSPlayerController effectiveOwner = player;
+
+            if (pawn.LifeState == (byte)LifeState_t.LIFE_DEAD)
+            {
+                isSpectating = true;
+
+                if (player.ControllingBot)
+                {
+                    return null;
+                }
+
+                var observerServices = pawn.ObserverServices;
+                if (observerServices == null)
+                {
+                    return null;
+                }
+
+                var observerPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
+                if (observerPawn == null || !observerPawn.IsValid)
+                {
+                    return null;
+                }
+
+                effectiveOwner = player;
+
+                pawn = observerPawn;
+
+                viewmodel = effectiveOwner.EnsureCustomView(0);
+                if (viewmodel == null)
+                {
+                    return null;
+                }
+            }
+
+            Console.WriteLine("[Create] Creating point_worldtext entity");
             CPointWorldText worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
+            if (worldText == null)
+            {
+                Console.WriteLine("[Create] Failed: couldn't create point_worldtext entity");
+                return null;
+            }
             worldText.MessageText = text;
             worldText.Enabled = true;
             worldText.FontSize = size;
@@ -47,14 +95,24 @@ namespace CS2ScreenMenuAPI.Internal
                 worldText.BackgroundBorderWidth = backgroundWidth;
             }
 
-            QAngle eyeAngles = pawn.EyeAngles;
+            QAngle eyeAngles = pawn.As<CCSPlayerPawn>().EyeAngles;
             Vector forward = new(), right = new(), up = new();
             NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
 
             Vector offset = new();
-            offset += forward * 7;
-            offset += right * shiftX;
-            offset += up * shiftY;
+            if (isSpectating)
+            {
+                offset += forward * 7;
+                offset += right * shiftX;
+                offset += up * shiftY;
+            }
+            else
+            {
+                offset += forward * 7;
+                offset += right * shiftX;
+                offset += up * shiftY;
+            }
+
             QAngle angles = new()
             {
                 Y = eyeAngles.Y + 270,
@@ -63,11 +121,14 @@ namespace CS2ScreenMenuAPI.Internal
             };
 
             worldText.DispatchSpawn();
-            worldText.Teleport(pawn.AbsOrigin! + offset + new Vector(0, 0, pawn.ViewOffset.Z), angles, null);
 
+            var finalPos = pawn.AbsOrigin! + offset + new Vector(0, 0, pawn.ViewOffset.Z);
+
+            worldText.Teleport(finalPos, angles, null);
+            worldText.AcceptInput("ClearParent");
             worldText.AcceptInput("SetParent", viewmodel, null, "!activator");
 
-            WorldTextOwners[worldText.Index] = player;
+            WorldTextOwners[worldText.Index] = effectiveOwner;
 
             return worldText;
         }

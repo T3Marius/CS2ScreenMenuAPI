@@ -30,89 +30,74 @@ namespace CS2ScreenMenuAPI.Internal
 
         public static CCSGOViewModel? EnsureCustomView(this CCSPlayerController player, int index)
         {
+
             CCSPlayerPawnBase? pPawnBase = player.GetPlayerPawnBase();
             if (pPawnBase == null)
             {
                 return null;
             }
+            ;
 
-            // If the pawn is dead, try to get the observer's pawn.
             if (pPawnBase.LifeState == (byte)LifeState_t.LIFE_DEAD)
             {
+
+                var playerPawn = player.Pawn.Value;
+                if (playerPawn == null || !playerPawn.IsValid)
+                {
+                    return null;
+                }
+
                 if (player.ControllingBot)
                 {
                     return null;
                 }
-                else
-                {
-                    var observerServices = player.PlayerPawn.Value?.ObserverServices;
-                    if (observerServices == null)
-                    {
-                        return null;
-                    }
 
-                    var observerPawn = observerServices.ObserverTarget;
-                    if (observerPawn == null || !observerPawn.IsValid)
-                    {
-                        return null;
-                    }
-
-                    // Try to cast the observer pawn to a CCSPlayerPawn.
-                    var obsPawn = observerPawn.Value as CCSPlayerPawn;
-                    if (obsPawn == null)
-                    {
-                        return null;
-                    }
-
-                    var observerController = obsPawn.OriginalController;
-                    if (observerController == null || !observerController.IsValid)
-                    {
-                        return null;
-                    }
-
-                    // Use the observer controller's index to find the observer.
-                    uint origIndex = observerController.Value!.Index;
-                    if (origIndex == 0)
-                    {
-                        return null;
-                    }
-                    uint observerIndex = origIndex - 1;
-
-                    // Assume Utilities.GetPlayers() returns all CCSPlayerController instances.
-                    var allPlayers = Utilities.GetPlayers();
-                    var observer = allPlayers.FirstOrDefault(p => p.Index == observerIndex);
-                    if (observer == null)
-                    {
-                        return null;
-                    }
-
-                    pPawnBase = observer.PlayerPawn.Value;
-                    if (pPawnBase == null)
-                    {
-                        return null;
-                    }
-                }
-            }
-
-            if (pPawnBase.ViewModelServices == null)
-            {
-                return null;
-            }
-
-            var handle = new CHandle<CCSGOViewModel>(
-                (IntPtr)(pPawnBase.ViewModelServices.Handle +
-                         Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel") + 4));
-
-            if (!handle.IsValid)
-            {
-                CCSGOViewModel? viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel");
-                if (viewmodel == null)
+                var observerServices = playerPawn.ObserverServices;
+                if (observerServices == null)
                 {
                     return null;
                 }
 
+                var observerPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
+                if (observerPawn == null || !observerPawn.IsValid)
+                {
+                    return null;
+                }
+
+                var observerController = observerPawn.OriginalController.Value;
+                if (observerController == null || !observerController.IsValid)
+                {
+                    return null;
+                }
+
+                pPawnBase = observerController.GetPlayerPawnBase();
+                if (pPawnBase == null)
+                {
+                    return null;
+                }
+            }
+
+            var pawn = pPawnBase as CCSPlayerPawn;
+            if (pawn == null)
+            {
+                return null;
+            }
+
+            if (pawn.ViewModelServices == null)
+            {
+                return null;
+            }
+
+            int offset = Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel");
+            IntPtr viewModelHandleAddress = (IntPtr)(pawn.ViewModelServices.Handle + offset + 4);
+
+            var handle = new CHandle<CCSGOViewModel>(viewModelHandleAddress);
+            if (!handle.IsValid)
+            {
+                CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
                 viewmodel.DispatchSpawn();
                 handle.Raw = viewmodel.EntityHandle.Raw;
+                Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
             }
 
             return handle.Value;
