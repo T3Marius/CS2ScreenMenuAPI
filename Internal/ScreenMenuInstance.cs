@@ -306,7 +306,7 @@ namespace CS2ScreenMenuAPI.Internal
 
         private void BuildOptionsList(StringBuilder builder, int currentOffset, int selectable)
         {
-            int enabledCount = 0;
+            int enabledIndex = 0;
             bool showNumbers = _config.DefaultSettings.EnableOptionsCount;
             for (int i = 0; i < selectable; i++)
             {
@@ -318,24 +318,21 @@ namespace CS2ScreenMenuAPI.Internal
                     ? $"{option.Text} {_config.Translations.DisabledOption}"
                     : option.Text;
 
-                if (option.Disabled)
+                if (!option.Disabled)
                 {
-                    builder.AppendLine($"{prefix}{displayText}");
+                    enabledIndex++;
+                    if (showNumbers)
+                        builder.AppendLine($"{prefix}{enabledIndex}. {displayText}");
+                    else
+                        builder.AppendLine($"{prefix}{displayText}");
                 }
                 else
                 {
-                    enabledCount++;
-                    if (showNumbers)
-                    {
-                        builder.AppendLine($"{prefix}{enabledCount}. {displayText}");
-                    }
-                    else
-                    {
-                        builder.AppendLine($"{prefix}{displayText}");
-                    }
+                    builder.AppendLine($"{prefix}{displayText}");
                 }
             }
         }
+
 
         private void BuildNavigationOptions(StringBuilder builder, int selectable)
         {
