@@ -7,7 +7,6 @@ on:
     paths-ignore:
       - 'README.md'
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,6 +14,42 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Bump version number
+        if: "!contains(github.event.head_commit.message, '[skip ci]')"
+        id: bump
+        run: |
+          # Find the first csproj file in the repository
+          csproj_file=$(find . -maxdepth 2 -name "*.csproj" | head -n 1)
+          if [ -z "$csproj_file" ]; then
+            echo "No csproj file found!"
+            exit 1
+          fi
+          echo "Found project file: $csproj_file"
+          
+          # Extract current version from the csproj file
+          version=$(grep -oPm1 "(?<=<Version>)[^<]+" "$csproj_file")
+          echo "Current version: $version"
+          
+          # Split the version into major, minor, patch (assuming x.y.z)
+          IFS='.' read -r major minor patch <<< "$version"
+          # Increment the minor version
+          minor=$((minor + 1))
+          new_version="${major}.${minor}.${patch}"
+          echo "New version: $new_version"
+          
+          # Update the csproj file with the new version
+          sed -i "s/<Version>$version<\/Version>/<Version>$new_version<\/Version>/" "$csproj_file"
+          
+          # Export the new version for later steps
+          echo "new_version=$new_version" >> $GITHUB_ENV
+
+      - name: Commit version bump
+        if: "!contains(github.event.head_commit.message, '[skip ci]')"
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: '**/*.csproj'
+          message: "Bump version to ${{ env.new_version }} [skip ci]"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v2
