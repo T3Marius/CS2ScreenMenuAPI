@@ -59,6 +59,11 @@ namespace CS2ScreenMenuAPI.Internal
             get => _config.DefaultSettings.Size;
             set => _config.DefaultSettings.Size = value;
         }
+        public bool EnableOptionsCount
+        {
+            get => _config.DefaultSettings.EnableOptionsCount;
+            set => _config.DefaultSettings.EnableOptionsCount = value;
+        }
 
         public ScreenMenu(string title, BasePlugin plugin) : base(title)
         {

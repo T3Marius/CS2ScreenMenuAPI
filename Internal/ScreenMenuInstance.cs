@@ -50,7 +50,6 @@ namespace CS2ScreenMenuAPI.Internal
             _onRoundEndDelegate = new BasePlugin.GameEventHandler<EventRoundEnd>(OnRoundEnd);
             _onRoundStartDelegate = new BasePlugin.GameEventHandler<EventRoundStart>(OnRoundStart);
 
-
             RegisterOnKeyPress();
             RegisterListenersNEvents();
         }
@@ -182,8 +181,6 @@ namespace CS2ScreenMenuAPI.Internal
             _oldButtons = currentButtons;
         }
 
-
-
         private void MoveSelection(int direction)
         {
             int totalLines = GetTotalLines();
@@ -310,6 +307,7 @@ namespace CS2ScreenMenuAPI.Internal
         private void BuildOptionsList(StringBuilder builder, int currentOffset, int selectable)
         {
             int enabledCount = 0;
+            bool showNumbers = _config.DefaultSettings.EnableOptionsCount;
             for (int i = 0; i < selectable; i++)
             {
                 var option = _menu.MenuOptions[currentOffset + i];
@@ -327,11 +325,17 @@ namespace CS2ScreenMenuAPI.Internal
                 else
                 {
                     enabledCount++;
-                    builder.AppendLine($"{prefix}{enabledCount}. {displayText}");
+                    if (showNumbers)
+                    {
+                        builder.AppendLine($"{prefix}{enabledCount}. {displayText}");
+                    }
+                    else
+                    {
+                        builder.AppendLine($"{prefix}{displayText}");
+                    }
                 }
             }
         }
-
 
         private void BuildNavigationOptions(StringBuilder builder, int selectable)
         {
@@ -341,7 +345,6 @@ namespace CS2ScreenMenuAPI.Internal
             {
                 if (_menu.IsSubMenu)
                 {
-                    // Only show the arrow for Scrollable or Both types
                     prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0) ? _config.Translations.SelectPrefix : "";
                     builder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
 
@@ -413,7 +416,6 @@ namespace CS2ScreenMenuAPI.Internal
                 }
                 else
                 {
-                    // Non-submenu: no Back.
                     if (_menu.MenuOptions.Count > NUM_PER_PAGE)
                         navCount++; // Next exists
                     if (_menu.HasExitOption)
@@ -445,6 +447,7 @@ namespace CS2ScreenMenuAPI.Internal
                     if (!option.Disabled)
                     {
                         option.OnSelect(_player, option);
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
                         switch (_menu.PostSelectAction)
                         {
                             case PostSelectAction.Close:
@@ -467,7 +470,6 @@ namespace CS2ScreenMenuAPI.Internal
             }
         }
 
-
         private void HandleNavigationSelection(int selectable)
         {
             int navIndex = CurrentSelection - selectable;
@@ -481,11 +483,13 @@ namespace CS2ScreenMenuAPI.Internal
                         if (_menu.ParentMenu != null)
                         {
                             Close();
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                             MenuAPI.OpenMenu(_plugin, _player, _menu.ParentMenu);
                         }
                         else
                         {
                             Close();
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                         }
                     }
                     else if (navIndex == 1)
@@ -500,15 +504,18 @@ namespace CS2ScreenMenuAPI.Internal
                         else if (_menu.HasExitOption)
                         {
                             Close();
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                         }
                     }
                     else if (navIndex == 2 && _menu.MenuOptions.Count > NUM_PER_PAGE && _menu.HasExitOption)
                     {
                         Close();
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                     }
                 }
                 else
                 {
+                    int offset = selectable;
                     if (_menu.MenuOptions.Count > NUM_PER_PAGE)
                     {
                         if (navIndex == 0)
@@ -521,6 +528,7 @@ namespace CS2ScreenMenuAPI.Internal
                         else if (navIndex == 1 && _menu.HasExitOption)
                         {
                             Close();
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                         }
                     }
                     else
@@ -528,6 +536,7 @@ namespace CS2ScreenMenuAPI.Internal
                         if (_menu.HasExitOption && navIndex == 0)
                         {
                             Close();
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                         }
                     }
                 }
@@ -553,16 +562,16 @@ namespace CS2ScreenMenuAPI.Internal
                     else if (_menu.HasExitOption)
                     {
                         Close();
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                     }
                 }
                 else if (navIndex == 2 && (_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE && _menu.HasExitOption)
                 {
                     Close();
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                 }
             }
         }
-
-
 
         public void NextPage(int nextSelectionIndex = -1)
         {
@@ -571,9 +580,9 @@ namespace CS2ScreenMenuAPI.Internal
                 CurrentPage++;
                 CurrentSelection = (nextSelectionIndex >= 0) ? nextSelectionIndex : 0;
                 Display();
+                _player.ExecuteClientCommand($"play {_config.Sounds.Next}");
             }
         }
-
 
         public void PrevPage(int prevSelectionIndex = -1)
         {
@@ -582,6 +591,7 @@ namespace CS2ScreenMenuAPI.Internal
                 CurrentPage--;
                 CurrentSelection = (prevSelectionIndex >= 0) ? prevSelectionIndex : 0;
                 Display();
+                _player.ExecuteClientCommand($"play {_config.Sounds.Back}");
             }
         }
 
@@ -597,6 +607,7 @@ namespace CS2ScreenMenuAPI.Internal
             {
                 if (_menu.HasExitOption)
                     Close();
+                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                 return;
             }
 
@@ -607,11 +618,13 @@ namespace CS2ScreenMenuAPI.Internal
                     if (_menu.ParentMenu != null)
                     {
                         Close();
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                         MenuAPI.OpenMenu(_plugin, _player, _menu.ParentMenu);
                     }
                     else
                     {
                         Close();
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                     }
                     return;
                 }
@@ -640,6 +653,7 @@ namespace CS2ScreenMenuAPI.Internal
                 if (!option.Disabled)
                 {
                     enabledCount++;
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
                     if (enabledCount == targetEnabledIndex)
                     {
                         option.OnSelect(_player, option);
@@ -661,7 +675,6 @@ namespace CS2ScreenMenuAPI.Internal
                 }
             }
         }
-
 
         public void Reset()
         {
@@ -690,9 +703,9 @@ namespace CS2ScreenMenuAPI.Internal
 
         private void UnregisterListeners()
         {
-            _plugin.RemoveListener("OnTick", _onTickDelegate);
-            _plugin.RemoveListener("CheckTransmit", _checkTransmitDelegate);
-            _plugin.RemoveListener("OnEntityDeleted", _onEntityDeletedDelegate);
+            _plugin.RemoveListener<Listeners.OnTick>(_onTickDelegate);
+            _plugin.RemoveListener<Listeners.CheckTransmit>(_checkTransmitDelegate);
+            _plugin.RemoveListener<Listeners.OnEntityDeleted>(_onEntityDeletedDelegate);
         }
 
         private void RecreateHud()

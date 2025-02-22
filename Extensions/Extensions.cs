@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace CS2ScreenMenuAPI.Extensions
@@ -37,6 +38,6 @@ namespace CS2ScreenMenuAPI.Extensions
                 : ColorTranslator.ToHtml(value);
             writer.WriteStringValue(colorString);
         }
-        
+
     }
 }
