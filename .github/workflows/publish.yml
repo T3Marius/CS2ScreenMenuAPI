@@ -15,8 +15,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # Bump version only if commit message does NOT contain '[manual version]'
       - name: Bump version number
-        if: "!contains(github.event.head_commit.message, '[skip ci]')"
+        if: "!contains(github.event.head_commit.message, '[manual version]')"
         id: bump
         run: |
           # Find the first csproj file in the repository
@@ -45,7 +46,7 @@ jobs:
           echo "new_version=$new_version" >> $GITHUB_ENV
 
       - name: Commit version bump
-        if: "!contains(github.event.head_commit.message, '[skip ci]')"
+        if: "!contains(github.event.head_commit.message, '[manual version]')"
         uses: EndBug/add-and-commit@v9
         with:
           add: '**/*.csproj'
