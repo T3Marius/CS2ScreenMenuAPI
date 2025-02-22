@@ -88,7 +88,7 @@ namespace CS2ScreenMenuAPI.Internal
             uint entityIndex = entity.Index;
             if (WorldTextManager.WorldTextOwners.ContainsKey(entityIndex))
             {
-                WorldTextManager.WorldTextOwners.Clear();
+                WorldTextManager.WorldTextOwners.Remove(entityIndex);
             }
         }
 
@@ -332,7 +332,6 @@ namespace CS2ScreenMenuAPI.Internal
                 }
             }
         }
-
 
         private void BuildNavigationOptions(StringBuilder builder, int selectable)
         {
@@ -691,7 +690,7 @@ namespace CS2ScreenMenuAPI.Internal
             {
                 _hudText.Enabled = false;
                 _hudText.AcceptInput("Kill", _hudText);
-                WorldTextManager.WorldTextOwners.Clear();
+                WorldTextManager.WorldTextOwners.Remove(_hudText.Index);
             }
 
             MenuAPI.RemoveActiveMenu(_player);

@@ -7,7 +7,7 @@ namespace CS2ScreenMenuAPI.Internal
 {
     internal static class WorldTextManager
     {
-        internal static Dictionary<uint, CCSPlayerController> WorldTextOwners = [];
+        internal static Dictionary<uint, CCSPlayerController> WorldTextOwners = new();
 
         internal static CPointWorldText? Create(
             CCSPlayerController player,
@@ -22,59 +22,135 @@ namespace CS2ScreenMenuAPI.Internal
             float backgroundWidth = 0.15f
         )
         {
+            var pawnBase = player.Pawn.Value;
+            if (pawnBase == null)
+                return null;
 
+            if (pawnBase.LifeState != (byte)LifeState_t.LIFE_DEAD)
+            {
+                return CreateForAlive(player, text, size, color, font, shiftX, shiftY, drawBackground, backgroundHeight, backgroundWidth);
+            }
+            else
+            {
+                return CreateForDead(player, text, size, color, font, shiftX, shiftY, drawBackground, backgroundHeight, backgroundWidth);
+            }
+        }
+
+        internal static CPointWorldText? CreateForAlive(
+            CCSPlayerController player,
+            string text,
+            float size,
+            Color? color,
+            string font,
+            float shiftX,
+            float shiftY,
+            bool drawBackground,
+            float backgroundHeight,
+            float backgroundWidth
+        )
+        {
             CCSGOViewModel? viewmodel = player.EnsureCustomView(0);
             if (viewmodel == null)
-            {
                 return null;
-            }
 
-            var pawn = player.Pawn.Value!;
+            var pawnBase = player.Pawn.Value;
+            if (pawnBase == null)
+                return null;
+
+            CCSPlayerPawn? pawn = pawnBase.As<CCSPlayerPawn>();
             if (pawn == null)
-            {
                 return null;
-            }
 
-            bool isSpectating = false;
-            CCSPlayerController effectiveOwner = player;
+            return CreateWorldText(
+                effectiveOwner: player,
+                pawn: pawn,
+                viewmodel: viewmodel,
+                text: text,
+                size: size,
+                color: color,
+                font: font,
+                shiftX: shiftX,
+                shiftY: shiftY,
+                drawBackground: drawBackground,
+                backgroundHeight: backgroundHeight,
+                backgroundWidth: backgroundWidth,
+                isSpectating: false
+            );
+        }
 
-            if (pawn.LifeState == (byte)LifeState_t.LIFE_DEAD)
-            {
-                isSpectating = true;
+        internal static CPointWorldText? CreateForDead(
+            CCSPlayerController player,
+            string text,
+            float size,
+            Color? color,
+            string font,
+            float shiftX,
+            float shiftY,
+            bool drawBackground,
+            float backgroundHeight,
+            float backgroundWidth
+        )
+        {
+            CCSGOViewModel? viewmodel = player.EnsureCustomView(0);
+            if (viewmodel == null)
+                return null;
 
-                if (player.ControllingBot)
-                {
-                    return null;
-                }
+            var pawnBase = player.Pawn.Value;
+            if (pawnBase == null)
+                return null;
 
-                var observerServices = pawn.ObserverServices;
-                if (observerServices == null)
-                {
-                    return null;
-                }
+            if (player.ControllingBot)
+                return null;
 
-                var observerPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
-                if (observerPawn == null || !observerPawn.IsValid)
-                {
-                    return null;
-                }
+            var observerServices = pawnBase.ObserverServices;
+            if (observerServices == null)
+                return null;
 
-                effectiveOwner = player;
+            CCSPlayerPawn? observerPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
+            if (observerPawn == null || !observerPawn.IsValid)
+                return null;
 
-                pawn = observerPawn;
+            CCSPlayerPawn pawn = observerPawn;
+            viewmodel = player.EnsureCustomView(0);
+            if (viewmodel == null)
+                return null;
 
-                viewmodel = effectiveOwner.EnsureCustomView(0);
-                if (viewmodel == null)
-                {
-                    return null;
-                }
-            }
-
-            CPointWorldText worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext")!;
+            return CreateWorldText(
+                effectiveOwner: player,
+                pawn: pawn,
+                viewmodel: viewmodel,
+                text: text,
+                size: size,
+                color: color,
+                font: font,
+                shiftX: shiftX,
+                shiftY: shiftY,
+                drawBackground: drawBackground,
+                backgroundHeight: backgroundHeight,
+                backgroundWidth: backgroundWidth,
+                isSpectating: true
+            );
+        }
+        private static CPointWorldText? CreateWorldText(
+            CCSPlayerController effectiveOwner,
+            CCSPlayerPawn pawn,
+            CCSGOViewModel viewmodel,
+            string text,
+            float size,
+            Color? color,
+            string font,
+            float shiftX,
+            float shiftY,
+            bool drawBackground,
+            float backgroundHeight,
+            float backgroundWidth,
+            bool isSpectating
+        )
+        {
+            CPointWorldText? worldText = Utilities.CreateEntityByName<CPointWorldText>("point_worldtext");
             if (worldText == null)
-            {
                 return null;
-            }
+
             worldText.MessageText = text;
             worldText.Enabled = true;
             worldText.FontSize = size;
@@ -93,23 +169,14 @@ namespace CS2ScreenMenuAPI.Internal
                 worldText.BackgroundBorderWidth = backgroundWidth;
             }
 
-            QAngle eyeAngles = pawn.As<CCSPlayerPawn>().EyeAngles;
+            QAngle eyeAngles = pawn.EyeAngles;
             Vector forward = new(), right = new(), up = new();
             NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
 
             Vector offset = new();
-            if (isSpectating)
-            {
-                offset += forward * 7;
-                offset += right * shiftX;
-                offset += up * shiftY;
-            }
-            else
-            {
-                offset += forward * 7;
-                offset += right * shiftX;
-                offset += up * shiftY;
-            }
+            offset += forward * 7;
+            offset += right * shiftX;
+            offset += up * shiftY;
 
             QAngle angles = new()
             {
@@ -117,12 +184,10 @@ namespace CS2ScreenMenuAPI.Internal
                 Z = 90 - eyeAngles.X,
                 X = 0
             };
-            if (pawn == effectiveOwner)
-                return null;
+
             worldText.DispatchSpawn();
 
             var finalPos = pawn.AbsOrigin! + offset + new Vector(0, 0, pawn.ViewOffset.Z);
-
             worldText.Teleport(finalPos, angles, null);
             worldText.AcceptInput("ClearParent");
             worldText.AcceptInput("SetParent", viewmodel, null, "!activator");
