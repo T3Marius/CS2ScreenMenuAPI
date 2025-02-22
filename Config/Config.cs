@@ -25,7 +25,6 @@ namespace CS2ScreenMenuAPI.Config
         public Menu_Translations Translations { get; set; } = new Menu_Translations();
         public Default_Settings DefaultSettings { get; set; } = new Default_Settings();
         public Sounds_Config Sounds { get; set; } = new Sounds_Config();
-
         public MenuConfig() { }
 
         public void Initialize()
