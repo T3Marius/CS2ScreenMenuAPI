@@ -1,0 +1,27 @@
+name: Create Release
+
+on:
+  push:
+    # Trigger on tags that start with "v", for example: v2.4.0
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: 'Release ${{ github.ref }}'
+          body: |
+            **What's New in this Release:**
+
+            - Add your release information here.
+            - You can include changelogs, features, bug fixes, etc.
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

@@ -649,9 +649,9 @@ namespace CS2ScreenMenuAPI.Internal
                 if (!option.Disabled)
                 {
                     enabledCount++;
-                    _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
                     if (enabledCount == targetEnabledIndex)
                     {
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
                         option.OnSelect(_player, option);
                         switch (_menu.PostSelectAction)
                         {
