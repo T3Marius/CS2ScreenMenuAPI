@@ -23,7 +23,6 @@ namespace CS2ScreenMenuAPI
                 ActiveMenus[player.Handle] = new ScreenMenuInstance(plugin, player, menu);
                 ActiveMenus[player.Handle].Display();
             });
-            Helper.RemoveBinds(player);
         }
 
         public static void OpenSubMenu(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
@@ -37,7 +36,6 @@ namespace CS2ScreenMenuAPI
             }
             ActiveMenus[player.Handle] = new ScreenMenuInstance(plugin, player, menu);
             ActiveMenus[player.Handle].Display();
-            Helper.RemoveBinds(player);
         }
 
         public static void CloseActiveMenu(CCSPlayerController player)
@@ -47,7 +45,6 @@ namespace CS2ScreenMenuAPI
             if (ActiveMenus.TryGetValue(player.Handle, out var menu))
             {
                 menu.Close();
-                Helper.SetBinds(player);
                 ActiveMenus.Remove(player.Handle);
             }
         }
@@ -58,7 +55,6 @@ namespace CS2ScreenMenuAPI
                 return;
 
             ActiveMenus.Remove(player.Handle);
-            Helper.SetBinds(player);
         }
 
         public static IMenuInstance? GetActiveMenu(CCSPlayerController player)
