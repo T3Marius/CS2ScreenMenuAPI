@@ -91,6 +91,7 @@ namespace CS2ScreenMenuAPI.Config
     ""DefaultSettings"": {
         ""MenuType"": ""Both"",
         ""TextColor"": ""Orange"",
+        ""DisabledOptionsColor"": ""White"",
         ""PositionX"": -5.5,
         ""PositionY"": 0,
         ""Background"": true,
@@ -99,22 +100,25 @@ namespace CS2ScreenMenuAPI.Config
         ""Font"": ""Arial Bold"",
         ""Size"": 32,
         ""Spacing"": true,
-        ""EnableOptionsCount"": true
+        ""FreezePlayer"": true,
+        ""EnableOptionsCount"": true,
+        ""EnableDisabledOptionsCount"": true
     },
     ""Translations"": {
         ""NextButton"": ""Next"",
         ""BackButton"": ""Back"",
         ""ExitButton"": ""Exit"",
-        ""DisabledOption"": ""(Disabled)"",
         ""ScrollInfo"": ""[W/S] Scroll"",
         ""SelectInfo"": ""[E] Select"",
         ""SelectPrefix"": ""‣ ""
     },
     ""Sounds"": {
-        ""Select"": ""sound/buttons/button14"",
-        ""Next"" : ""sound/buttons/button14"",
-        ""Back"": ""sound/buttons/button14"",
-        ""Exit"": ""sound/buttons/button14""
+        ""Select"": ""sounds/buttons/button9"",
+        ""Next"" : ""sounds/buttons/button9"",
+        ""Back"": ""sounds/buttons/button9"",
+        ""Exit"": ""sounds/buttons/button9"",
+        ""ScrollUp"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c"",
+        ""ScrollDown"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c""
     }
     /* 
         Buttons mapping:
@@ -193,6 +197,7 @@ namespace CS2ScreenMenuAPI.Config
     ""DefaultSettings"": {
         ""MenuType"": ""Both"",
         ""TextColor"": ""Orange"",
+        ""DisabledOptionsColor"": ""White"",
         ""PositionX"": -5.5,
         ""PositionY"": 0,
         ""Background"": true,
@@ -201,22 +206,25 @@ namespace CS2ScreenMenuAPI.Config
         ""Font"": ""Arial Bold"",
         ""Size"": 32,
         ""Spacing"": true,
-        ""EnableOptionsCount"": true
+        ""FreezePlayer"": true,
+        ""EnableOptionsCount"": true,
+        ""EnableDisabledOptionsCount"": true
     },
     ""Translations"": {
         ""NextButton"": ""Next"",
         ""BackButton"": ""Back"",
         ""ExitButton"": ""Exit"",
-        ""DisabledOption"": ""(Disabled)"",
         ""ScrollInfo"": ""[W/S] Scroll"",
         ""SelectInfo"": ""[E] Select"",
         ""SelectPrefix"": ""‣ ""
     },
     ""Sounds"": {
-        ""Select"": ""sound/buttons/button14"",
-        ""Next"" : ""sound/buttons/button14"",
-        ""Back"": ""sound/buttons/button14"",
-        ""Exit"": ""sound/buttons/button14""
+        ""Select"": ""sounds/buttons/button9"",
+        ""Next"" : ""sounds/buttons/button9"",
+        ""Back"": ""sounds/buttons/button9"",
+        ""Exit"": ""sounds/buttons/button9"",
+        ""ScrollUp"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c"",
+        ""ScrollDown"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c""
     }
     /* 
     Buttons mapping:
@@ -309,10 +317,13 @@ namespace CS2ScreenMenuAPI.Config
 
     public class Sounds_Config
     {
-        public string Select { get; set; } = "sound/buttons/button14";
-        public string Next { get; set; } = "sound/buttons/button14";
-        public string Back { get; set; } = "sound/buttons/button14";
-        public string Exit { get; set; } = "sound/buttons/button14";
+        public string Select { get; set; } = "sounds/buttons/button9";
+        public string Next { get; set; } = "sounds/buttons/button9";
+        public string Back { get; set; } = "sounds/buttons/button9";
+        public string Exit { get; set; } = "sounds/buttons/button9";
+
+        public string ScrollUp { get; set; } = "sounds/ui/csgo_ui_store_rollover.vsnd_c";
+        public string ScrollDown { get; set; } = "sounds/ui/csgo_ui_store_rollover.vsnd_c";
     }
 
     public class Menu_Translations
@@ -320,7 +331,6 @@ namespace CS2ScreenMenuAPI.Config
         public string NextButton { get; set; } = "Next";
         public string BackButton { get; set; } = "Back";
         public string ExitButton { get; set; } = "Exit";
-        public string DisabledOption { get; set; } = "(Disabled)";
         public string ScrollInfo { get; set; } = "[W/S] Scroll";
         public string SelectInfo { get; set; } = "[E] Select";
         public string SelectPrefix { get; set; } = "‣ ";
@@ -333,6 +343,8 @@ namespace CS2ScreenMenuAPI.Config
 
         [JsonConverter(typeof(ColorJsonConverter))]
         public Color TextColor { get; set; } = Color.Orange;
+        [JsonConverter(typeof(ColorJsonConverter))]
+        public Color DisabledOptionsColor { get; set; } = Color.White;
         public float PositionX { get; set; } = -5.5f;
         public float PositionY { get; set; } = 0f;
         public bool Background { get; set; } = true;
@@ -341,6 +353,8 @@ namespace CS2ScreenMenuAPI.Config
         public string Font { get; set; } = "Arial Bold";
         public float Size { get; set; } = 32;
         public bool Spacing { get; set; } = true;
+        public bool FreezePlayer { get; set; } = true;
         public bool EnableOptionsCount { get; set; } = true;
+        public bool EnableDisabledOptionsCount { get; set; } = true;
     }
 }
