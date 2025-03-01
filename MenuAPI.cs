@@ -1,6 +1,7 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CS2ScreenMenuAPI.Interfaces;
 using CS2ScreenMenuAPI.Internal;
+using CS2ScreenMenuAPI.Enums;
 using CS2ScreenMenuAPI.Extensions;
 
 namespace CS2ScreenMenuAPI
@@ -23,6 +24,13 @@ namespace CS2ScreenMenuAPI
                 ActiveMenus[player.Handle] = new ScreenMenuInstance(plugin, player, menu);
                 ActiveMenus[player.Handle].Display();
             });
+            if (menu.MenuType == MenuType.Scrollable || menu.MenuType == MenuType.Both)
+            {
+                if (menu.FreezePlayer)
+                {
+                    player.Freeze();
+                }
+            }
         }
 
         public static void OpenSubMenu(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
@@ -36,6 +44,14 @@ namespace CS2ScreenMenuAPI
             }
             ActiveMenus[player.Handle] = new ScreenMenuInstance(plugin, player, menu);
             ActiveMenus[player.Handle].Display();
+
+            if (menu.MenuType == MenuType.Scrollable || menu.MenuType == MenuType.Both)
+            {
+                if (menu.FreezePlayer)
+                {
+                    player.Freeze();
+                }
+            }
         }
 
         public static void CloseActiveMenu(CCSPlayerController player)
@@ -55,6 +71,7 @@ namespace CS2ScreenMenuAPI
                 return;
 
             ActiveMenus.Remove(player.Handle);
+
         }
 
         public static IMenuInstance? GetActiveMenu(CCSPlayerController player)
