@@ -4,12 +4,15 @@ using CounterStrikeSharp.API.Core;
 using CS2ScreenMenuAPI.Enums;
 using CS2ScreenMenuAPI.Config;
 using CS2ScreenMenuAPI.Interfaces;
+using CS2ScreenMenuAPI.Extensions;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace CS2ScreenMenuAPI.Internal
 {
     internal class ScreenMenuInstance : IMenuInstance
     {
+        private WorldTextManager.MenuTextEntities? _menuEntities;
         private CPointWorldText? _hudText;
         private readonly BasePlugin _plugin;
         private readonly CCSPlayerController _player;
@@ -29,6 +32,8 @@ namespace CS2ScreenMenuAPI.Internal
         private readonly BasePlugin.GameEventHandler<EventRoundStart> _onRoundStartDelegate;
         private readonly BasePlugin.GameEventHandler<EventRoundEnd> _onRoundEndDelegate;
         private static bool _keyCommandsRegistered = false;
+        private Vector _fixedForward = new();
+        private bool _fixedForwardSet = false;
 
         public ScreenMenuInstance(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
         {
@@ -157,11 +162,19 @@ namespace CS2ScreenMenuAPI.Internal
 
                 if (currentObserverId != _hudObserverId)
                 {
-                    if (_hudText != null && _hudText.IsValid)
+                    if (_menuEntities != null)
                     {
-                        _hudText.Enabled = false;
-                        _hudText.AcceptInput("Kill", _hudText);
-                        _hudText = null;
+                        if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
+                        {
+                            _menuEntities.EnabledOptions.Enabled = false;
+                            _menuEntities.EnabledOptions.AcceptInput("Kill", _menuEntities.EnabledOptions);
+                        }
+                        if (_menuEntities.DisabledOptions != null && _menuEntities.DisabledOptions.IsValid)
+                        {
+                            _menuEntities.DisabledOptions.Enabled = false;
+                            _menuEntities.DisabledOptions.AcceptInput("Kill", _menuEntities.DisabledOptions);
+                        }
+                        _menuEntities = null;
                     }
                     _hudObserverId = currentObserverId;
                     Display();
@@ -180,7 +193,6 @@ namespace CS2ScreenMenuAPI.Internal
             HandleButtons(currentButtons);
             _oldButtons = currentButtons;
         }
-
         private void MoveSelection(int direction)
         {
             int totalLines = GetTotalLines();
@@ -215,6 +227,10 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     if (((_oldButtons & scrollUpButton) == 0) && ((currentButtons & scrollUpButton) != 0))
                     {
+                        if (!string.IsNullOrEmpty(_config.Sounds.ScrollUp))
+                        {
+                            _player.ExecuteClientCommand($"play {_config.Sounds.ScrollUp}");
+                        }
                         MoveSelection(-1);
                         Display();
                     }
@@ -224,6 +240,10 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     if (((_oldButtons & scrollDownButton) == 0) && ((currentButtons & scrollDownButton) != 0))
                     {
+                        if (!string.IsNullOrEmpty(_config.Sounds.ScrollDown))
+                        {
+                            _player.ExecuteClientCommand($"play {_config.Sounds.ScrollDown}");
+                        }
                         MoveSelection(1);
                         Display();
                     }
@@ -247,18 +267,18 @@ namespace CS2ScreenMenuAPI.Internal
                 }
             }
         }
-
+        bool DisabledTeleport = false;
         public void Display()
         {
-            var builder = new StringBuilder();
-            BuildMenuText(builder);
-            string menuText = builder.ToString();
+            var enabledBuilder = new StringBuilder();
+            var disabledBuilder = new StringBuilder();
+            BuildMenuText(enabledBuilder, disabledBuilder);
 
-            if (_hudText == null)
+            if (_menuEntities == null)
             {
-                _hudText = WorldTextManager.Create(
+                _menuEntities = WorldTextManager.Create(
                     _player,
-                    menuText,
+                    "",
                     _menu.Size,
                     _menu.TextColor,
                     _menu.FontName,
@@ -269,131 +289,262 @@ namespace CS2ScreenMenuAPI.Internal
                     _menu.BackgroundWidth
                 );
             }
-
-            if (_hudText != null && _hudText.IsValid)
+            if (_menuEntities?.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
             {
-                _hudText.AcceptInput("SetMessage", _hudText, _hudText, menuText);
+                _menuEntities.EnabledOptions.AcceptInput("SetMessage", _menuEntities.EnabledOptions,
+                    _menuEntities.EnabledOptions, enabledBuilder.ToString());
+            }
+
+            if (_menuEntities?.DisabledOptions != null && _menuEntities.DisabledOptions.IsValid)
+            {
+                _menuEntities.DisabledOptions.AcceptInput("SetMessage", _menuEntities.DisabledOptions,
+                    _menuEntities.DisabledOptions, disabledBuilder.ToString());
+
+                if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
+                {
+                    var pawn = _player.PlayerPawn.Value;
+                    if (pawn != null)
+                    {
+                        Vector enabledPos = _menuEntities.EnabledOptions.GetPosition();
+                        QAngle enabledAngles = _menuEntities.EnabledOptions.GetAngles();
+
+                        if (!_fixedForwardSet)
+                        {
+                            QAngle eyeAngles = pawn.EyeAngles;
+                            Vector forward = new(), right = new(), up = new();
+                            NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
+                            _fixedForward = forward;
+                            _fixedForwardSet = true;
+                        }
+
+                        Vector disabledPos = enabledPos - (_fixedForward * 0.05f);
+                        if (!DisabledTeleport)
+                        {
+                            _menuEntities.DisabledOptions.Teleport(
+                                disabledPos,
+                                enabledAngles,
+                                null
+                            );
+                            DisabledTeleport = true;
+                        }
+                    }
+                }
             }
         }
 
-        private void BuildMenuText(StringBuilder builder)
+        private void BuildMenuText(StringBuilder enabledBuilder, StringBuilder disabledBuilder)
         {
             int currentOffset = CurrentPage * NUM_PER_PAGE;
             int selectable = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset);
 
-            if (_config.DefaultSettings.Spacing)
-                builder.AppendLine("\u200B");
 
-            builder.AppendLine(_menu.Title);
-            builder.AppendLine("\u200B");
-
-            BuildOptionsList(builder, currentOffset, selectable);
-
-            builder.AppendLine("\u200B");
-
-            BuildNavigationOptions(builder, selectable);
-
-            if (_menu.MenuType == MenuType.Both)
-            {
-                builder.AppendLine("\u200B");
-                builder.AppendLine(_config.Translations.ScrollInfo);
-                builder.AppendLine(_config.Translations.SelectInfo);
-            }
-
-            if (_config.DefaultSettings.Spacing)
-                builder.AppendLine("\u200B");
-        }
-
-        private void BuildOptionsList(StringBuilder builder, int currentOffset, int selectable)
-        {
-            int enabledIndex = 0;
-            bool showNumbers = _config.DefaultSettings.EnableOptionsCount;
+            int extraMargin = 2;
+            int maxTextLengthWithMargin = 0;
             for (int i = 0; i < selectable; i++)
             {
                 var option = _menu.MenuOptions[currentOffset + i];
                 string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i)
-                    ? _config.Translations.SelectPrefix
-                    : "";
-                string displayText = option.Disabled
-                    ? $"{option.Text} {_config.Translations.DisabledOption}"
-                    : option.Text;
+                    ? _config.Translations.SelectPrefix : "";
+                int currentCount = _config.DefaultSettings.EnableDisabledOptionsCount ? (i + 1) : 0;
+                string numberPart = (_config.DefaultSettings.EnableOptionsCount || _config.DefaultSettings.EnableDisabledOptionsCount)
+                                        ? $"{currentCount}. " : "";
+                string baseText = option.Disabled ? "  " + prefix + numberPart + option.Text
+                                                  : prefix + numberPart + option.Text;
+                if (baseText.Length > maxTextLengthWithMargin)
+                    maxTextLengthWithMargin = baseText.Length;
+            }
+            maxTextLengthWithMargin += extraMargin;
+
+            string titleText = _menu.Title;
+            int titlePadNeeded = maxTextLengthWithMargin - titleText.Length;
+            string titleExtraPadding = titlePadNeeded > 0 ? new string('\u2800', titlePadNeeded) : "";
+
+            if (_config.DefaultSettings.Spacing)
+            {
+                enabledBuilder.AppendLine("\u200B");
+                disabledBuilder.AppendLine("\u200B");
+            }
+            enabledBuilder.AppendLine(titleText + titleExtraPadding);
+            enabledBuilder.AppendLine("\u200B");
+
+            disabledBuilder.AppendLine("\u200B");
+            disabledBuilder.AppendLine("\u200B");
+
+            BuildOptionsList(enabledBuilder, disabledBuilder, currentOffset, selectable);
+
+            enabledBuilder.AppendLine("\u200B");
+            disabledBuilder.AppendLine("\u200B");
+
+            BuildNavigationOptions(enabledBuilder, disabledBuilder, selectable);
+
+            if (_menu.MenuType == MenuType.Both)
+            {
+                enabledBuilder.AppendLine("\u200B");
+                enabledBuilder.AppendLine(_config.Translations.ScrollInfo);
+                enabledBuilder.AppendLine(_config.Translations.SelectInfo);
+
+                disabledBuilder.AppendLine("\u200B");
+                disabledBuilder.AppendLine("\u200B");
+                disabledBuilder.AppendLine("\u200B");
+            }
+
+            if (_config.DefaultSettings.Spacing)
+            {
+                enabledBuilder.AppendLine("\u200B");
+                disabledBuilder.AppendLine("\u200B");
+            }
+        }
+        private void BuildOptionsList(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int currentOffset, int selectable)
+        {
+            int optionCounter = 0;
+            bool countDisabled = _config.DefaultSettings.EnableDisabledOptionsCount;
+            bool showNumbers = _config.DefaultSettings.EnableOptionsCount;
+            bool showDisabledNumbers = _config.DefaultSettings.EnableDisabledOptionsCount;
+
+
+            int extraMargin = 2;
+
+            int maxTextLength = 0;
+            for (int i = 0; i < selectable; i++)
+            {
+                var option = _menu.MenuOptions[currentOffset + i];
+                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i)
+                    ? _config.Translations.SelectPrefix : "";
+                int currentCount = countDisabled ? (i + 1) : 0;
+                string numberPart = (showNumbers || countDisabled) ? $"{currentCount}. " : "";
+                string baseText = option.Disabled ? "  " + prefix + numberPart + option.Text
+                                                  : prefix + numberPart + option.Text;
+                int length = baseText.Length;
+                if (length > maxTextLength)
+                {
+                    maxTextLength = length;
+                }
+            }
+
+            maxTextLength += extraMargin;
+            for (int i = 0; i < selectable; i++)
+            {
+                var option = _menu.MenuOptions[currentOffset + i];
+                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i)
+                    ? _config.Translations.SelectPrefix : "";
+
+                if (countDisabled)
+                    optionCounter++;
 
                 if (!option.Disabled)
                 {
-                    enabledIndex++;
-                    if (showNumbers)
-                        builder.AppendLine($"{prefix}{enabledIndex}. {displayText}");
-                    else
-                        builder.AppendLine($"{prefix}{displayText}");
+                    if (!countDisabled)
+                        optionCounter++;
+
+                    string numberPart = (showNumbers || countDisabled) ? $"{optionCounter}. " : "";
+                    string baseText = prefix + numberPart + option.Text;
+                    int padNeeded = maxTextLength - baseText.Length;
+                    string extraPadding = padNeeded > 0 ? new string('\u2800', padNeeded) : "";
+                    string displayText = baseText + extraPadding;
+                    enabledBuilder.AppendLine(displayText);
+                    disabledBuilder.AppendLine("\u200B");
                 }
                 else
                 {
-                    builder.AppendLine($"{prefix}{displayText}");
+                    string numberPart = (showDisabledNumbers || countDisabled) ? $"{optionCounter}. " : "";
+                    string baseText = "  " + prefix + numberPart + option.Text;
+                    int padNeeded = maxTextLength - baseText.Length;
+                    string extraPadding = padNeeded > 0 ? new string('\u2800', padNeeded) : "";
+                    string displayText = baseText + extraPadding;
+                    enabledBuilder.AppendLine("\u200B");
+                    disabledBuilder.AppendLine("\u200B\u200B" + displayText);
                 }
             }
         }
 
-        private void BuildNavigationOptions(StringBuilder builder, int selectable)
-        {
-            string prefix;
 
+
+        private void BuildNavigationOptions(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
+        {
             if (CurrentPage == 0)
             {
                 if (_menu.IsSubMenu)
                 {
-                    prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0) ? _config.Translations.SelectPrefix : "";
-                    builder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
-
-                    if (_menu.MenuOptions.Count > NUM_PER_PAGE)
-                    {
-                        prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1) ? _config.Translations.SelectPrefix : "";
-                        builder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                    }
-
-                    if (_menu.HasExitOption)
-                    {
-                        int expectedIndex = selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 2 : 1);
-                        prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == expectedIndex) ? _config.Translations.SelectPrefix : "";
-                        builder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                    }
+                    BuildSubMenuNavigation(enabledBuilder, disabledBuilder, selectable);
                 }
                 else
                 {
-                    int offset = selectable;
-                    if (_menu.MenuOptions.Count > NUM_PER_PAGE)
-                    {
-                        prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == offset) ? _config.Translations.SelectPrefix : "";
-                        builder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                        offset++;
-                    }
-                    if (_menu.HasExitOption)
-                    {
-                        prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == offset) ? _config.Translations.SelectPrefix : "";
-                        builder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                    }
+                    BuildMainMenuNavigation(enabledBuilder, disabledBuilder, selectable);
                 }
             }
             else
             {
-                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0) ? _config.Translations.SelectPrefix : "";
-                builder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
+                BuildPaginationNavigation(enabledBuilder, disabledBuilder, selectable);
+            }
+        }
+        private void BuildSubMenuNavigation(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
+        {
+            string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0)
+                ? _config.Translations.SelectPrefix : "";
+            enabledBuilder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
+            disabledBuilder.AppendLine("\u200B");
 
-                int offset = selectable + 1;
-                if ((_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE)
-                {
-                    prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == offset) ? _config.Translations.SelectPrefix : "";
-                    builder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                    offset++;
-                }
+            if (_menu.MenuOptions.Count > NUM_PER_PAGE)
+            {
+                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1)
+                    ? _config.Translations.SelectPrefix : "";
+                enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
+                disabledBuilder.AppendLine("\u200B");
+            }
 
-                if (_menu.HasExitOption)
-                {
-                    prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == offset) ? _config.Translations.SelectPrefix : "";
-                    builder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                }
+            if (_menu.HasExitOption)
+            {
+                int expectedIndex = selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 2 : 1);
+                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == expectedIndex)
+                    ? _config.Translations.SelectPrefix : "";
+                enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
+                disabledBuilder.AppendLine("\u200B");
             }
         }
 
+        private void BuildMainMenuNavigation(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
+        {
+            if (_menu.MenuOptions.Count > NUM_PER_PAGE)
+            {
+                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable)
+                    ? _config.Translations.SelectPrefix : "";
+                enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
+                disabledBuilder.AppendLine("\u200B");
+            }
+
+            if (_menu.HasExitOption)
+            {
+                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 1 : 0))
+                    ? _config.Translations.SelectPrefix : "";
+                enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
+                disabledBuilder.AppendLine("\u200B");
+            }
+        }
+
+        private void BuildPaginationNavigation(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
+        {
+            string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0)
+                ? _config.Translations.SelectPrefix : "";
+            enabledBuilder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
+            disabledBuilder.AppendLine("\u200B");
+
+            if ((_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE)
+            {
+                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1)
+                    ? _config.Translations.SelectPrefix : "";
+                enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
+                disabledBuilder.AppendLine("\u200B");
+            }
+
+            if (_menu.HasExitOption)
+            {
+                int navOffset = (_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE ? 2 : 1;
+                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + navOffset)
+                    ? _config.Translations.SelectPrefix : "";
+                enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
+                disabledBuilder.AppendLine("\u200B");
+            }
+        }
         private int GetTotalLines()
         {
             int currentOffset = CurrentPage * NUM_PER_PAGE;
@@ -443,7 +594,10 @@ namespace CS2ScreenMenuAPI.Internal
                     if (!option.Disabled)
                     {
                         option.OnSelect(_player, option);
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                        if (!string.IsNullOrEmpty(_config.Sounds.Select))
+                        {
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                        }
                         switch (_menu.PostSelectAction)
                         {
                             case PostSelectAction.Close:
@@ -479,13 +633,19 @@ namespace CS2ScreenMenuAPI.Internal
                         if (_menu.ParentMenu != null)
                         {
                             Close();
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            }
                             MenuAPI.OpenMenu(_plugin, _player, _menu.ParentMenu);
                         }
                         else
                         {
                             Close();
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            }
                         }
                     }
                     else if (navIndex == 1)
@@ -500,13 +660,19 @@ namespace CS2ScreenMenuAPI.Internal
                         else if (_menu.HasExitOption)
                         {
                             Close();
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            }
                         }
                     }
                     else if (navIndex == 2 && _menu.MenuOptions.Count > NUM_PER_PAGE && _menu.HasExitOption)
                     {
                         Close();
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                        {
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        }
                     }
                 }
                 else
@@ -524,7 +690,10 @@ namespace CS2ScreenMenuAPI.Internal
                         else if (navIndex == 1 && _menu.HasExitOption)
                         {
                             Close();
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            }
                         }
                     }
                     else
@@ -532,7 +701,10 @@ namespace CS2ScreenMenuAPI.Internal
                         if (_menu.HasExitOption && navIndex == 0)
                         {
                             Close();
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            }
                         }
                     }
                 }
@@ -558,13 +730,19 @@ namespace CS2ScreenMenuAPI.Internal
                     else if (_menu.HasExitOption)
                     {
                         Close();
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                        {
+                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        }
                     }
                 }
                 else if (navIndex == 2 && (_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE && _menu.HasExitOption)
                 {
                     Close();
-                    _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                    if (!string.IsNullOrEmpty(_config.Sounds.Exit))
+                    {
+                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                    }
                 }
             }
         }
@@ -576,7 +754,10 @@ namespace CS2ScreenMenuAPI.Internal
                 CurrentPage++;
                 CurrentSelection = (nextSelectionIndex >= 0) ? nextSelectionIndex : 0;
                 Display();
-                _player.ExecuteClientCommand($"play {_config.Sounds.Next}");
+                if (!string.IsNullOrEmpty(_config.Sounds.Next))
+                {
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Next}");
+                }
             }
         }
 
@@ -587,7 +768,10 @@ namespace CS2ScreenMenuAPI.Internal
                 CurrentPage--;
                 CurrentSelection = (prevSelectionIndex >= 0) ? prevSelectionIndex : 0;
                 Display();
-                _player.ExecuteClientCommand($"play {_config.Sounds.Back}");
+                if (!string.IsNullOrEmpty(_config.Sounds.Back))
+                {
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Back}");
+                }
             }
         }
 
@@ -640,36 +824,59 @@ namespace CS2ScreenMenuAPI.Internal
                 return;
             }
 
-            int targetEnabledIndex = key;
             int currentOffset = CurrentPage * NUM_PER_PAGE;
-            int enabledCount = 0;
-            for (int i = 0; i < Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset); i++)
+            int totalDisplayed = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset);
+            var displayToOptionMap = new Dictionary<int, int>();
+            for (int i = 0, displayNum = 1; i < totalDisplayed; i++, displayNum++)
             {
                 var option = _menu.MenuOptions[currentOffset + i];
                 if (!option.Disabled)
                 {
-                    enabledCount++;
-                    if (enabledCount == targetEnabledIndex)
-                    {
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
-                        option.OnSelect(_player, option);
-                        switch (_menu.PostSelectAction)
-                        {
-                            case PostSelectAction.Close:
-                                Close();
-                                break;
-                            case PostSelectAction.Reset:
-                                Reset();
-                                break;
-                            case PostSelectAction.Nothing:
-                                break;
-                            default:
-                                throw new NotImplementedException("The specified Select Action is not supported!");
-                        }
-                        return;
-                    }
+                    displayToOptionMap[displayNum] = i;
                 }
             }
+
+            if (displayToOptionMap.ContainsKey(key))
+            {
+                int optionIndex = displayToOptionMap[key];
+                var option = _menu.MenuOptions[currentOffset + optionIndex];
+                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                option.OnSelect(_player, option);
+                switch (_menu.PostSelectAction)
+                {
+                    case PostSelectAction.Close:
+                        Close();
+                        break;
+                    case PostSelectAction.Reset:
+                        Reset();
+                        break;
+                    case PostSelectAction.Nothing:
+                        break;
+                    default:
+                        throw new NotImplementedException("The specified Select Action is not supported!");
+                }
+            }
+        }
+
+        public void Close()
+        {
+            if (_menuEntities != null)
+            {
+                _player.Unfreeze();
+                if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
+                {
+                    _menuEntities.EnabledOptions.Enabled = false;
+                    _menuEntities.EnabledOptions.AcceptInput("Kill", _menuEntities.EnabledOptions);
+                }
+                if (_menuEntities.DisabledOptions != null && _menuEntities.DisabledOptions.IsValid)
+                {
+                    _menuEntities.DisabledOptions.Enabled = false;
+                    _menuEntities.DisabledOptions.AcceptInput("Kill", _menuEntities.DisabledOptions);
+                }
+            }
+
+            MenuAPI.RemoveActiveMenu(_player);
+            UnregisterListeners();
         }
 
         public void Reset()
@@ -684,18 +891,7 @@ namespace CS2ScreenMenuAPI.Internal
             Display();
         }
 
-        public void Close()
-        {
-            if (_hudText != null && _hudText.IsValid)
-            {
-                _hudText.Enabled = false;
-                _hudText.AcceptInput("Kill", _hudText);
-                WorldTextManager.WorldTextOwners.Remove(_hudText.Index);
-            }
 
-            MenuAPI.RemoveActiveMenu(_player);
-            UnregisterListeners();
-        }
 
         private void UnregisterListeners()
         {
