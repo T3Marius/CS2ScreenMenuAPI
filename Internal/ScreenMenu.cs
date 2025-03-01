@@ -64,6 +64,11 @@ namespace CS2ScreenMenuAPI.Internal
             get => _config.DefaultSettings.EnableOptionsCount;
             set => _config.DefaultSettings.EnableOptionsCount = value;
         }
+        public bool FreezePlayer
+        {
+            get => _config.DefaultSettings.FreezePlayer;
+            set => _config.DefaultSettings.FreezePlayer = value;
+        }
 
         public ScreenMenu(string title, BasePlugin plugin) : base(title)
         {
