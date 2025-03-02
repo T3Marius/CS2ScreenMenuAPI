@@ -895,7 +895,10 @@ namespace CS2ScreenMenuAPI.Internal
         {
             if (_menuEntities != null)
             {
-                _player.Unfreeze();
+                if (_menu.FreezePlayer)
+                {
+                    _player.Unfreeze();
+                }
                 if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
                 {
                     _menuEntities.EnabledOptions.Enabled = false;
