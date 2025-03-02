@@ -5,33 +5,44 @@
         Menu configuration file.
         Adjust your button settings and display texts as needed.
     */
-    "Buttons": {
-        "ScrollUpButton": "W",
-        "ScrollDownButton": "S",
-        "SelectButton": "E"
-    },
-    "DefaultSettings": {
-        "MenuType": "Both",
-        "TextColor": "Orange",
-        "PositionX": -5.5,
-        "PositionY": 0,
-        "Background": true,
-        "BackgroundHeight": 0,
-        "BackgroundWidth": 0.2,
-        "Font": "Arial Bold",
-        "Size": 32,
-        "Spacing": true,
-        "EnableOptionsCount": true
-    },
-    "Translations": {
-        "NextButton": "Next",
-        "BackButton": "Back",
-        "ExitButton": "Exit",
-        "DisabledOption": "(Disabled)",
-        "ScrollInfo": "[W/S] Scroll",
-        "SelectInfo": "[E] Select",
-        "SelectPrefix": "‣ "
-    }
+  "Buttons": {
+    "ScrollUpButton": "W",
+    "ScrollDownButton": "S",
+    "SelectButton": "E"
+  },
+  "DefaultSettings": {
+    "MenuType": "KeyPress",
+    "TextColor": "Orange",
+    "DisabledOptionsColor": "White",
+    "PositionX": -5.5,
+    "PositionY": 0,
+    "Background": true,
+    "BackgroundHeight": 0.10,
+    "BackgroundWidth": 0.10,
+    "Font": "Arial Bold",
+    "Size": 32,
+    "Spacing": true,
+    "FreezePlayer": true,
+    "EnableOptionsCount": true,
+    "EnableDisabledOptionsCount": true
+  },
+  "Translations": {
+    "NextButton": "Next",
+    "BackButton": "Back",
+    "ExitButton": "Exit",
+    "ScrollInfo": "[W/S] Scroll",
+    "SelectInfo": "[E] Select",
+    "SelectPrefix": "\u2023 "
+  },
+  "Sounds": {
+    "Select": "sounds/buttons/button9",
+    "Next": "sounds/buttons/button9",
+    "Back": "sounds/buttons/button9",
+    "Exit": "sounds/buttons/button9",
+    "ScrollUp": "sounds/ui/csgo_ui_store_rollover.vsnd_c",
+    "ScrollDown": "sounds/ui/csgo_ui_store_rollover.vsnd_c"
+  }
+
     /* 
         Buttons mapping:
         
