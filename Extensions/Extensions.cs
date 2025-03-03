@@ -64,10 +64,16 @@ namespace CS2ScreenMenuAPI.Extensions
         }
         public static void ChangeMoveType(this CBasePlayerPawn pawn, MoveType_t movetype)
         {
+            if (pawn.Handle == IntPtr.Zero)
+            {
+                return;
+            }
+
             pawn.MoveType = movetype;
             Schema.SetSchemaValue(pawn.Handle, "CBaseEntity", "m_nActualMoveType", movetype);
             Utilities.SetStateChanged(pawn, "CBaseEntity", "m_MoveType");
         }
+
     }
     public static class WorldTextExtensions
     {

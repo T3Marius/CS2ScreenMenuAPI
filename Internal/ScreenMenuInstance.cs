@@ -122,7 +122,15 @@ namespace CS2ScreenMenuAPI.Internal
             if (MenuAPI.GetActiveMenu(_player) != this)
                 return HookResult.Continue;
 
-            _plugin.AddTimer(0.1f, RecreateHud);
+            _plugin.AddTimer(0.1f, () =>
+            {
+                ScreenMenu menu = _menu;
+                Close();
+                if (menu.IsSubMenu)
+                    MenuAPI.OpenSubMenu(_plugin, _player, menu);
+                else
+                    MenuAPI.OpenMenu(_plugin, _player, menu);
+            });
             return HookResult.Continue;
         }
         private HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)
