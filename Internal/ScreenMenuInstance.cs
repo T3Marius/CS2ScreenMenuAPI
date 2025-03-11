@@ -5,8 +5,7 @@ using CS2ScreenMenuAPI.Enums;
 using CS2ScreenMenuAPI.Config;
 using CS2ScreenMenuAPI.Interfaces;
 using CS2ScreenMenuAPI.Extensions;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
-using CounterStrikeSharp.API.Modules.Utils;
+using CS2ScreenMenuAPI.Extensions.PlayerSettings;
 
 namespace CS2ScreenMenuAPI.Internal
 {
@@ -16,7 +15,7 @@ namespace CS2ScreenMenuAPI.Internal
         private CPointWorldText? _hudText;
         private readonly BasePlugin _plugin;
         private readonly CCSPlayerController _player;
-        private readonly ScreenMenu _menu;
+        private ScreenMenu _menu;
         private const int NUM_PER_PAGE = 6;
 
         private int CurrentSelection = 0;
@@ -32,17 +31,19 @@ namespace CS2ScreenMenuAPI.Internal
         private readonly BasePlugin.GameEventHandler<EventRoundStart> _onRoundStartDelegate;
         private readonly BasePlugin.GameEventHandler<EventRoundEnd> _onRoundEndDelegate;
         private static bool _keyCommandsRegistered = false;
-        private Vector _fixedForward = new();
-        private bool _fixedForwardSet = false;
+        private bool _disabledOptionsValid = true;
+        private string basePath = Path.Combine(Server.GameDirectory, "csgo", "addons", "counterstrikesharp", "shared", "CS2ScreenMenuAPI");
+
+        private uint _currentDisabledOptionsIndex = 0;
 
         public ScreenMenuInstance(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
         {
             _plugin = plugin;
             _player = player;
-            _menu = menu;
-
             _config = new MenuConfig();
             _config.Initialize();
+            _menu = menu;
+            PlayerSettings.Initialize(basePath);
 
             Reset();
             _oldButtons = player.Buttons;
@@ -63,11 +64,12 @@ namespace CS2ScreenMenuAPI.Internal
         {
             if (!_keyCommandsRegistered)
             {
-                for (int i = 1; i <= 9; i++)
+                for (int i = 0; i <= 9; i++)
                 {
                     int key = i;
                     _plugin.AddCommand($"css_{key}", "Uses OnKeyPress", (player, info) =>
                     {
+
                         if (player == null || player.IsBot || !player.IsValid)
                             return;
 
@@ -94,6 +96,17 @@ namespace CS2ScreenMenuAPI.Internal
             if (WorldTextManager.WorldTextOwners.ContainsKey(entityIndex))
             {
                 WorldTextManager.WorldTextOwners.Remove(entityIndex);
+            }
+
+            if (entityIndex == _currentDisabledOptionsIndex)
+            {
+                _currentDisabledOptionsIndex = 0;
+                _disabledOptionsValid = false;
+            }
+
+            if (WorldTextManager.EntityTransforms.ContainsKey(entityIndex))
+            {
+                WorldTextManager.EntityTransforms.Remove(entityIndex);
             }
         }
 
@@ -170,21 +183,15 @@ namespace CS2ScreenMenuAPI.Internal
 
                 if (currentObserverId != _hudObserverId)
                 {
-                    if (_menuEntities != null)
+                    if (_menuEntities?.MainEntity != null && _menuEntities.MainEntity.IsValid)
                     {
-                        if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
-                        {
-                            _menuEntities.EnabledOptions.Enabled = false;
-                            _menuEntities.EnabledOptions.AcceptInput("Kill", _menuEntities.EnabledOptions);
-                        }
-                        if (_menuEntities.DisabledOptions != null && _menuEntities.DisabledOptions.IsValid)
-                        {
-                            _menuEntities.DisabledOptions.Enabled = false;
-                            _menuEntities.DisabledOptions.AcceptInput("Kill", _menuEntities.DisabledOptions);
-                        }
-                        _menuEntities = null;
+                        _menuEntities.MainEntity.Enabled = false;
+                        _menuEntities.MainEntity.AcceptInput("Kill", _menuEntities.MainEntity);
                     }
+
+                    _menuEntities = null;
                     _hudObserverId = currentObserverId;
+
                     Display();
                 }
             }
@@ -205,21 +212,29 @@ namespace CS2ScreenMenuAPI.Internal
         {
             int totalLines = GetTotalLines();
             int selectableCount = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - (CurrentPage * NUM_PER_PAGE));
+
+            bool hasResOption = _menu.AddResolutionOption;
+
             int newSelection = CurrentSelection;
             int attempts = 0;
 
             do
             {
                 newSelection = (newSelection + direction + totalLines) % totalLines;
+
                 if (newSelection < selectableCount)
                 {
                     if (!_menu.MenuOptions[CurrentPage * NUM_PER_PAGE + newSelection].Disabled)
                         break;
                 }
-                else
+                else if (newSelection >= selectableCount)
                 {
-                    break;
+                    if (hasResOption && newSelection == totalLines - 1)
+                        break;
+                    else if (newSelection < totalLines - (hasResOption ? 1 : 0))
+                        break;
                 }
+
                 attempts++;
             }
             while (attempts < totalLines);
@@ -275,18 +290,49 @@ namespace CS2ScreenMenuAPI.Internal
                 }
             }
         }
-        bool DisabledTeleport = false;
         public void Display()
         {
-            var enabledBuilder = new StringBuilder();
-            var disabledBuilder = new StringBuilder();
-            BuildMenuText(enabledBuilder, disabledBuilder);
+            var settings = PlayerSettings.GetPlayerSettings(_player.SteamID.ToString());
+
+            if (string.IsNullOrEmpty(settings.Resolution))
+            {
+                var previousMenu = _menu;
+                var resolutionMenu = new ScreenMenu(_config.Translations.MenuResolutionTitle, _plugin) // Open the resolution menu
+                {
+                    PostSelectAction = PostSelectAction.Close,
+                    PositionX = -5.5f,
+                    HasExitOption = false,
+                };
+                foreach (var resolution in _config.Resolution.MenuResoltions.Keys)
+                {
+                    resolutionMenu.AddOption(resolution, (player, option) =>
+                    {
+                        var playerSettings = PlayerSettings.GetPlayerSettings(player.SteamID.ToString());
+                        playerSettings.Resolution = resolution;
+                        PlayerSettings.SetSettings(player.SteamID.ToString(), playerSettings);
+                        player.PrintToChat(_config.Translations.ResolutionSet.Replace("{res}", resolution));
+
+                        _menu = previousMenu;
+                        Display();
+                    });
+                }
+
+                _menu = resolutionMenu;
+            }
+
+            if (_config.Resolution.MenuResoltions.TryGetValue(settings.Resolution, out var menuRes))
+            {
+                _menu.PositionX = menuRes.PositionX;
+            }
+
+            var menuTextBuilder = new StringBuilder();
+            BuildMenuText(menuTextBuilder);
 
             if (_menuEntities == null)
             {
                 _menuEntities = WorldTextManager.Create(
                     _player,
-                    "",
+                    menuTextBuilder.ToString(),
                     _menu.Size,
                     _menu.TextColor,
                     _menu.FontName,
@@ -297,53 +343,87 @@ namespace CS2ScreenMenuAPI.Internal
                     _menu.BackgroundWidth
                 );
             }
-            if (_menuEntities?.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
+            else
             {
-                _menuEntities.EnabledOptions.AcceptInput("SetMessage", _menuEntities.EnabledOptions,
-                    _menuEntities.EnabledOptions, enabledBuilder.ToString());
-            }
-
-            if (_menuEntities?.DisabledOptions != null && _menuEntities.DisabledOptions.IsValid)
-            {
-                _menuEntities.DisabledOptions.AcceptInput("SetMessage", _menuEntities.DisabledOptions,
-                    _menuEntities.DisabledOptions, disabledBuilder.ToString());
-
-                if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
+                if (_menuEntities?.MainEntity != null && _menuEntities.MainEntity.IsValid)
                 {
-                    var pawn = _player.PlayerPawn.Value;
-                    if (pawn != null)
-                    {
-                        Vector enabledPos = _menuEntities.EnabledOptions.GetPosition();
-                        QAngle enabledAngles = _menuEntities.EnabledOptions.GetAngles();
-
-                        if (!_fixedForwardSet)
-                        {
-                            QAngle eyeAngles = pawn.EyeAngles;
-                            Vector forward = new(), right = new(), up = new();
-                            NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
-                            _fixedForward = forward;
-                            _fixedForwardSet = true;
-                        }
-
-                        Vector disabledPos = enabledPos - (_fixedForward * 0.05f);
-                        if (!DisabledTeleport)
-                        {
-                            _menuEntities.DisabledOptions.Teleport(
-                                disabledPos,
-                                enabledAngles,
-                                null
-                            );
-                            DisabledTeleport = true;
-                        }
-                    }
+                    _menuEntities.MainEntity.AcceptInput("SetMessage", _menuEntities.MainEntity,
+                        _menuEntities.MainEntity, menuTextBuilder.ToString());
+                }
+                else
+                {
+                    _menuEntities = WorldTextManager.Create(
+                        _player,
+                        menuTextBuilder.ToString(),
+                        _menu.Size,
+                        _menu.TextColor,
+                        _menu.FontName,
+                        _menu.PositionX,
+                        _menu.PositionY,
+                        _menu.Background,
+                        _menu.BackgroundHeight,
+                        _menu.BackgroundWidth
+                    );
                 }
             }
         }
-        private void BuildMenuText(StringBuilder enabledBuilder, StringBuilder disabledBuilder)
+        private void OpenResolutionMenu(ScreenMenu? returnMenu = null)
         {
-            bool hasDisabledOptions = _menu.MenuOptions.Any(option => option.Disabled);
+            var resolutionMenu = new ScreenMenu(_config.Translations.MenuResolutionTitle, _plugin)
+            {
+                PostSelectAction = PostSelectAction.Close,
+                PositionX = -5.5f,
+                HasExitOption = true,
+                IsSubMenu = true,
+                AddResolutionOption = false,
+                ParentMenu = returnMenu
+            };
+
+            foreach (var resolution in _config.Resolution.MenuResoltions.Keys)
+            {
+                resolutionMenu.AddOption(resolution, (player, option) =>
+                {
+                    var playerSettings = PlayerSettings.GetPlayerSettings(player.SteamID.ToString());
+                    playerSettings.Resolution = resolution;
+                    PlayerSettings.SetSettings(player.SteamID.ToString(), playerSettings);
+                    player.PrintToChat(_config.Translations.ResolutionSet.Replace("{res}", resolution));
+
+                    if (returnMenu != null)
+                    {
+                        SmoothTransitionToMenu(returnMenu);
+                    }
+                    else
+                    {
+                        Close();
+                    }
+                });
+            }
+
+            if (returnMenu != null)
+            {
+                SmoothTransitionToMenu(resolutionMenu);
+            }
+            else
+            {
+                _menu = resolutionMenu;
+                Display();
+            }
+        }
+        private void BuildMenuText(StringBuilder builder)
+        {
             int currentOffset = CurrentPage * NUM_PER_PAGE;
             int selectable = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset);
+            if (CurrentSelection == 0 && _menu.MenuOptions[currentOffset].Disabled)
+            {
+                for (int i = 1; i < selectable; i++)
+                {
+                    if (!_menu.MenuOptions[currentOffset + i].Disabled)
+                    {
+                        CurrentSelection = i;
+                        break;
+                    }
+                }
+            }
 
             int maxLength = _menu.Title.Length;
 
@@ -352,39 +432,37 @@ namespace CS2ScreenMenuAPI.Internal
                 var option = _menu.MenuOptions[i];
                 string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i % NUM_PER_PAGE)
                     ? _config.Translations.SelectPrefix : "";
-                int currentCount = _config.DefaultSettings.EnableDisabledOptionsCount ? (i + 1) : 0;
-                string numberPart = (_config.DefaultSettings.EnableOptionsCount || _config.DefaultSettings.EnableDisabledOptionsCount)
-                    ? $"{currentCount}. " : "";
 
-                if (option.Disabled)
-                {
-                    string disabledText = "  " + prefix + numberPart + option.Text;
-                    maxLength = Math.Max(maxLength, disabledText.Length);
-                }
-                else
-                {
-                    string text = prefix + numberPart + option.Text;
-                    maxLength = Math.Max(maxLength, text.Length);
-                }
+                bool shouldShowNumber = option.Disabled
+                    ? _config.DefaultSettings.EnableDisabledOptionsCount
+                    : _config.DefaultSettings.EnableOptionsCount;
+
+                string numberPart = shouldShowNumber ? $"{i + 1}. " : "";
+                string optionText = prefix + numberPart + option.Text;
+
+                maxLength = Math.Max(maxLength, optionText.Length);
             }
 
             maxLength = Math.Max(maxLength, $"7. {_config.Translations.BackButton}".Length);
             maxLength = Math.Max(maxLength, $"8. {_config.Translations.NextButton}".Length);
             maxLength = Math.Max(maxLength, $"9. {_config.Translations.ExitButton}".Length);
 
-            string titlePadding = new string('\u2800', maxLength - _menu.Title.Length + 2);
+            if (_menu.AddResolutionOption)
+            {
+                maxLength = Math.Max(maxLength, $"0. {_config.Translations.ResolutionOption}".Length);
+            }
+
+            string titlePadding = new string('\u2800', maxLength - _menu.Title.Length + 4);
 
             if (_config.DefaultSettings.Spacing)
             {
-                enabledBuilder.AppendLine("\u2800");
-                disabledBuilder.AppendLine("\u2800");
+                builder.AppendLine("\u2800");
             }
 
-            enabledBuilder.AppendLine(_menu.Title + titlePadding);
-            enabledBuilder.AppendLine("");
+            builder.AppendLine(_menu.Title + titlePadding);
+            builder.AppendLine("");
 
-            disabledBuilder.AppendLine("");
-            disabledBuilder.AppendLine("");
+            int enabledOptionCount = 0;
 
             for (int i = 0; i < selectable; i++)
             {
@@ -392,26 +470,29 @@ namespace CS2ScreenMenuAPI.Internal
                 string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == i)
                     ? _config.Translations.SelectPrefix : "";
 
-                int currentCount = i + 1;
-                string numberPart = (_config.DefaultSettings.EnableOptionsCount || _config.DefaultSettings.EnableDisabledOptionsCount)
-                    ? $"{currentCount}. " : "";
-
                 if (!option.Disabled)
                 {
-                    string baseText = prefix + numberPart + option.Text;
-                    enabledBuilder.AppendLine(baseText);
-                    disabledBuilder.AppendLine("");
+                    enabledOptionCount++;
+
+                    string numberPart = _config.DefaultSettings.EnableOptionsCount
+                        ? $"{enabledOptionCount}. "
+                        : "";
+
+                    string optionText = prefix + numberPart + option.Text;
+                    builder.AppendLine(optionText);
                 }
                 else
                 {
-                    string baseText = "  " + prefix + numberPart + option.Text;
-                    enabledBuilder.AppendLine("");
-                    disabledBuilder.AppendLine(baseText);
+                    string numberPart = _config.DefaultSettings.EnableDisabledOptionsCount
+                        ? $"{i + 1}. "
+                        : "";
+
+                    string disabledText = "" + prefix + numberPart + option.Text;
+                    builder.AppendLine(disabledText);
                 }
             }
 
-            enabledBuilder.AppendLine("");
-            disabledBuilder.AppendLine("");
+            builder.AppendLine("");
 
             if (CurrentPage == 0)
             {
@@ -419,23 +500,20 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable)
                         ? _config.Translations.SelectPrefix : "";
-                    enabledBuilder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
-                    disabledBuilder.AppendLine("");
+                    builder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
 
                     if (_menu.MenuOptions.Count > NUM_PER_PAGE)
                     {
                         prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1)
                             ? _config.Translations.SelectPrefix : "";
-                        enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                        disabledBuilder.AppendLine("");
+                        builder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
                     }
 
                     if (_menu.HasExitOption)
                     {
                         prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 2 : 1))
                             ? _config.Translations.SelectPrefix : "";
-                        enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                        disabledBuilder.AppendLine("");
+                        builder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
                     }
                 }
                 else
@@ -444,16 +522,14 @@ namespace CS2ScreenMenuAPI.Internal
                     {
                         string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable)
                             ? _config.Translations.SelectPrefix : "";
-                        enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                        disabledBuilder.AppendLine("");
+                        builder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
                     }
 
                     if (_menu.HasExitOption)
                     {
                         string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 1 : 0))
                             ? _config.Translations.SelectPrefix : "";
-                        enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                        disabledBuilder.AppendLine("");
+                        builder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
                     }
                 }
             }
@@ -461,15 +537,13 @@ namespace CS2ScreenMenuAPI.Internal
             {
                 string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable)
                     ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
-                disabledBuilder.AppendLine("");
+                builder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
 
                 if ((_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE)
                 {
                     prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1)
                         ? _config.Translations.SelectPrefix : "";
-                    enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                    disabledBuilder.AppendLine("");
+                    builder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
                 }
 
                 if (_menu.HasExitOption)
@@ -477,113 +551,59 @@ namespace CS2ScreenMenuAPI.Internal
                     int navOffset = (_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE ? 2 : 1;
                     prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + navOffset)
                         ? _config.Translations.SelectPrefix : "";
-                    enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                    disabledBuilder.AppendLine("");
+                    builder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
                 }
+            }
+
+            if (_menu.AddResolutionOption)
+            {
+                int navCount = 0;
+                if (CurrentPage == 0)
+                {
+                    if (_menu.IsSubMenu)
+                    {
+                        navCount = 1; // Back button
+                        if (_menu.MenuOptions.Count > NUM_PER_PAGE)
+                            navCount++; // Next exists
+                        if (_menu.HasExitOption)
+                            navCount++; // Exit exists
+                    }
+                    else
+                    {
+                        if (_menu.MenuOptions.Count > NUM_PER_PAGE)
+                            navCount++; // Next exists
+                        if (_menu.HasExitOption)
+                            navCount++; // Exit exists
+                    }
+                }
+                else
+                {
+                    navCount = 1; // Back button
+                    if ((_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE)
+                        navCount++; // Next exists
+                    if (_menu.HasExitOption)
+                        navCount++; // Exit exists
+                }
+
+                int resolutionSelectionIndex = selectable + navCount;
+
+                builder.AppendLine("");
+                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == resolutionSelectionIndex)
+                                    ? _config.Translations.SelectPrefix : "";
+                builder.AppendLine($"{prefix}0. {_config.Translations.ResolutionOption}");
             }
 
             // Control info
             if (_menu.MenuType == MenuType.Both || _menu.MenuType == MenuType.Scrollable)
             {
-                enabledBuilder.AppendLine("");
-                enabledBuilder.AppendLine(_config.Translations.ScrollInfo);
-                enabledBuilder.AppendLine(_config.Translations.SelectInfo);
-
-                disabledBuilder.AppendLine("");
-                disabledBuilder.AppendLine("");
-                disabledBuilder.AppendLine("");
+                builder.AppendLine("");
+                builder.AppendLine(_config.Translations.ScrollInfo);
+                builder.AppendLine(_config.Translations.SelectInfo);
             }
 
             if (_config.DefaultSettings.Spacing)
             {
-                enabledBuilder.AppendLine("\u2800");
-                disabledBuilder.AppendLine("\u2800");
-            }
-        }
-        private void BuildNavigationOptions(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
-        {
-            if (CurrentPage == 0)
-            {
-                if (_menu.IsSubMenu)
-                {
-                    BuildSubMenuNavigation(enabledBuilder, disabledBuilder, selectable);
-                }
-                else
-                {
-                    BuildMainMenuNavigation(enabledBuilder, disabledBuilder, selectable);
-                }
-            }
-            else
-            {
-                BuildPaginationNavigation(enabledBuilder, disabledBuilder, selectable);
-            }
-        }
-        private void BuildSubMenuNavigation(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
-        {
-            string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0)
-                ? _config.Translations.SelectPrefix : "";
-            enabledBuilder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
-            disabledBuilder.AppendLine("\u200B");
-
-            if (_menu.MenuOptions.Count > NUM_PER_PAGE)
-            {
-                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1)
-                    ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                disabledBuilder.AppendLine("\u200B");
-            }
-
-            if (_menu.HasExitOption)
-            {
-                int expectedIndex = selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 2 : 1);
-                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == expectedIndex)
-                    ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                disabledBuilder.AppendLine("\u200B");
-            }
-        }
-
-        private void BuildMainMenuNavigation(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
-        {
-            if (_menu.MenuOptions.Count > NUM_PER_PAGE)
-            {
-                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable)
-                    ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                disabledBuilder.AppendLine("\u200B");
-            }
-
-            if (_menu.HasExitOption)
-            {
-                string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + (_menu.MenuOptions.Count > NUM_PER_PAGE ? 1 : 0))
-                    ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                disabledBuilder.AppendLine("\u200B");
-            }
-        }
-
-        private void BuildPaginationNavigation(StringBuilder enabledBuilder, StringBuilder disabledBuilder, int selectable)
-        {
-            string prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 0)
-                ? _config.Translations.SelectPrefix : "";
-            enabledBuilder.AppendLine($"{prefix}7. {_config.Translations.BackButton}");
-            disabledBuilder.AppendLine("\u200B");
-
-            if ((_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE)
-            {
-                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + 1)
-                    ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}8. {_config.Translations.NextButton}");
-                disabledBuilder.AppendLine("\u200B");
-            }
-
-            if (_menu.HasExitOption)
-            {
-                int navOffset = (_menu.MenuOptions.Count - CurrentPage * NUM_PER_PAGE) > NUM_PER_PAGE ? 2 : 1;
-                prefix = (_menu.MenuType != MenuType.KeyPress && CurrentSelection == selectable + navOffset)
-                    ? _config.Translations.SelectPrefix : "";
-                enabledBuilder.AppendLine($"{prefix}9. {_config.Translations.ExitButton}");
-                disabledBuilder.AppendLine("\u200B");
+                builder.AppendLine("\u2800");
             }
         }
         private int GetTotalLines()
@@ -618,14 +638,25 @@ namespace CS2ScreenMenuAPI.Internal
                 if (_menu.HasExitOption)
                     navCount++; // Close exists
             }
-            return selectable + navCount;
+            int resolutionOption = _menu.AddResolutionOption ? 1 : 0;
+
+            return selectable + navCount + resolutionOption;
         }
 
         private void HandleSelection()
         {
             int currentOffset = CurrentPage * NUM_PER_PAGE;
             int selectable = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset);
-
+            int totalLines = GetTotalLines();
+            if (_menu.AddResolutionOption && CurrentSelection == totalLines - 1)
+            {
+                if (!string.IsNullOrEmpty(_config.Sounds.Select))
+                {
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                }
+                OpenResolutionMenu(_menu);
+                return;
+            }
             if (CurrentSelection < selectable)
             {
                 int optionIndex = currentOffset + CurrentSelection;
@@ -634,23 +665,41 @@ namespace CS2ScreenMenuAPI.Internal
                     var option = _menu.MenuOptions[optionIndex];
                     if (!option.Disabled)
                     {
-                        option.OnSelect(_player, option);
-                        if (!string.IsNullOrEmpty(_config.Sounds.Select))
+                        ScreenMenu? submenu = null;
+                        if (option is MenuOption menuOption)
                         {
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                            submenu = menuOption.SubMenu;
                         }
-                        switch (_menu.PostSelectAction)
+
+                        if (submenu != null)
                         {
-                            case PostSelectAction.Close:
-                                Close();
-                                break;
-                            case PostSelectAction.Reset:
-                                Reset();
-                                break;
-                            case PostSelectAction.Nothing:
-                                break;
-                            default:
-                                throw new NotImplementedException("The specified Select Action is not supported!");
+                            if (!string.IsNullOrEmpty(_config.Sounds.Select))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                            }
+                            SmoothTransitionToMenu(submenu);
+                        }
+                        else
+                        {
+                            option.OnSelect(_player, option);
+                            if (!string.IsNullOrEmpty(_config.Sounds.Select))
+                            {
+                                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                            }
+
+                            switch (_menu.PostSelectAction)
+                            {
+                                case PostSelectAction.Close:
+                                    Close();
+                                    break;
+                                case PostSelectAction.Reset:
+                                    Reset();
+                                    break;
+                                case PostSelectAction.Nothing:
+                                    break;
+                                default:
+                                    throw new NotImplementedException("The specified Select Action is not supported!");
+                            }
                         }
                     }
                 }
@@ -673,12 +722,11 @@ namespace CS2ScreenMenuAPI.Internal
                     {
                         if (_menu.ParentMenu != null)
                         {
-                            Close();
                             if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                             {
                                 _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
                             }
-                            MenuAPI.OpenMenu(_plugin, _player, _menu.ParentMenu);
+                            SmoothTransitionToMenu(_menu.ParentMenu);
                         }
                         else
                         {
@@ -788,6 +836,7 @@ namespace CS2ScreenMenuAPI.Internal
             }
         }
 
+
         public void NextPage(int nextSelectionIndex = -1)
         {
             if ((CurrentPage + 1) * NUM_PER_PAGE < _menu.MenuOptions.Count)
@@ -824,6 +873,13 @@ namespace CS2ScreenMenuAPI.Internal
             if (player.Handle != _player.Handle)
                 return;
 
+            if (key == 0 && _menu.AddResolutionOption)
+            {
+                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                OpenResolutionMenu(_menu);
+                return;
+            }
+
             if (key == 9)
             {
                 if (_menu.HasExitOption)
@@ -838,9 +894,8 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     if (_menu.ParentMenu != null)
                     {
-                        Close();
                         _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
-                        MenuAPI.OpenMenu(_plugin, _player, _menu.ParentMenu);
+                        SmoothTransitionToMenu(_menu.ParentMenu);
                     }
                     else
                     {
@@ -867,36 +922,119 @@ namespace CS2ScreenMenuAPI.Internal
 
             int currentOffset = CurrentPage * NUM_PER_PAGE;
             int totalDisplayed = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentOffset);
-            var displayToOptionMap = new Dictionary<int, int>();
-            for (int i = 0, displayNum = 1; i < totalDisplayed; i++, displayNum++)
+
+            var keyToOptionMap = new Dictionary<int, int>();
+            int enabledCount = 0;
+
+            for (int i = 0; i < totalDisplayed; i++)
             {
                 var option = _menu.MenuOptions[currentOffset + i];
                 if (!option.Disabled)
                 {
-                    displayToOptionMap[displayNum] = i;
+                    enabledCount++;
+
+                    if (_config.DefaultSettings.EnableOptionsCount)
+                    {
+                        keyToOptionMap[enabledCount] = i;
+                    }
                 }
             }
 
-            if (displayToOptionMap.ContainsKey(key))
+            if (!_config.DefaultSettings.EnableOptionsCount && key >= 1 && key <= totalDisplayed)
             {
-                int optionIndex = displayToOptionMap[key];
-                var option = _menu.MenuOptions[currentOffset + optionIndex];
-                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
-                option.OnSelect(_player, option);
-                switch (_menu.PostSelectAction)
+                int enabledFound = 0;
+                for (int i = 0; i < totalDisplayed; i++)
                 {
-                    case PostSelectAction.Close:
-                        Close();
-                        break;
-                    case PostSelectAction.Reset:
-                        Reset();
-                        break;
-                    case PostSelectAction.Nothing:
-                        break;
-                    default:
-                        throw new NotImplementedException("The specified Select Action is not supported!");
+                    var option = _menu.MenuOptions[currentOffset + i];
+                    if (!option.Disabled)
+                    {
+                        enabledFound++;
+                        if (enabledFound == key)
+                        {
+                            keyToOptionMap[key] = i;
+                            break;
+                        }
+                    }
                 }
             }
+
+            if (keyToOptionMap.ContainsKey(key))
+            {
+                int optionIndex = keyToOptionMap[key];
+                var option = _menu.MenuOptions[currentOffset + optionIndex];
+
+                ScreenMenu? submenu = null;
+                if (option is MenuOption menuOption)
+                {
+                    submenu = menuOption.SubMenu;
+                }
+
+                if (submenu != null)
+                {
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                    SmoothTransitionToMenu(submenu);
+                }
+                else
+                {
+                    _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                    option.OnSelect(_player, option);
+
+                    switch (_menu.PostSelectAction)
+                    {
+                        case PostSelectAction.Close:
+                            Close();
+                            break;
+                        case PostSelectAction.Reset:
+                            Reset();
+                            break;
+                        case PostSelectAction.Nothing:
+                            break;
+                        default:
+                            throw new NotImplementedException("The specified Select Action is not supported!");
+                    }
+                }
+            }
+        }
+        public void SmoothTransitionToMenu(ScreenMenu newMenu)
+        {
+            var currentEntity = _menuEntities?.MainEntity;
+            bool freezeStatus = _menu.FreezePlayer;
+
+            _menu = newMenu;
+            CurrentPage = 0;
+            CurrentSelection = 0;
+
+            if (freezeStatus != _menu.FreezePlayer)
+            {
+                if (_menu.FreezePlayer)
+                    _player.Freeze();
+                else
+                    _player.Unfreeze();
+            }
+
+            var menuTextBuilder = new StringBuilder();
+            BuildMenuText(menuTextBuilder);
+
+            bool entityValid = currentEntity != null && currentEntity.IsValid;
+
+            if (!entityValid)
+            {
+                if (_menuEntities?.MainEntity != null && _menuEntities.MainEntity.IsValid)
+                {
+                    _menuEntities.MainEntity.Enabled = false;
+                    _menuEntities.MainEntity.AcceptInput("Kill", _menuEntities.MainEntity);
+                }
+
+                _menuEntities = null;
+                Display();
+            }
+            else
+            {
+                currentEntity?.AcceptInput("SetMessage", currentEntity,
+                    currentEntity, menuTextBuilder.ToString());
+            }
+
+            MenuAPI.UpdateActiveMenu(_player, this);
         }
 
         public void Close()
@@ -907,15 +1045,11 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     _player.Unfreeze();
                 }
-                if (_menuEntities.EnabledOptions != null && _menuEntities.EnabledOptions.IsValid)
+
+                if (_menuEntities.MainEntity != null && _menuEntities.MainEntity.IsValid)
                 {
-                    _menuEntities.EnabledOptions.Enabled = false;
-                    _menuEntities.EnabledOptions.AcceptInput("Kill", _menuEntities.EnabledOptions);
-                }
-                if (_menuEntities.DisabledOptions != null && _menuEntities.DisabledOptions.IsValid)
-                {
-                    _menuEntities.DisabledOptions.Enabled = false;
-                    _menuEntities.DisabledOptions.AcceptInput("Kill", _menuEntities.DisabledOptions);
+                    _menuEntities.MainEntity.Enabled = false;
+                    _menuEntities.MainEntity.AcceptInput("Kill", _menuEntities.MainEntity);
                 }
             }
 
