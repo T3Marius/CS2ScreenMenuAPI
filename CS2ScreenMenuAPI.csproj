@@ -10,11 +10,11 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <Configuration>Release</Configuration>
     <DebugType>none</DebugType>
-    <Version>2.6.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="CounterStrikeSharp.API" Version="1.0.305" />
+    <PackageReference Include="Newtonsoft.json" Version="13.0.3" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.2" />
   </ItemGroup>
 

@@ -94,5 +94,10 @@ namespace CS2ScreenMenuAPI.Extensions
             }
             return new QAngle();
         }
+        public static void SetColor(this CPointWorldText worldText, string color)
+        {
+            worldText.AcceptInput("SetColor", worldText, worldText, $"{color}");
+            Utilities.SetStateChanged(worldText, "CPointWorldText", "m_Color");
+        }
     }
 }

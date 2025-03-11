@@ -1,4 +1,5 @@
-﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core;
+using CS2ScreenMenuAPI.Internal;
 
 namespace CS2ScreenMenuAPI
 {
