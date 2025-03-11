@@ -40,8 +40,14 @@ namespace CS2ScreenMenuAPI
 
             if (ActiveMenus.TryGetValue(player.Handle, out var activeMenu))
             {
+                if (activeMenu is ScreenMenuInstance screenMenuInstance)
+                {
+                    screenMenuInstance.SmoothTransitionToMenu(menu);
+                    return;
+                }
                 activeMenu.Close();
             }
+
             ActiveMenus[player.Handle] = new ScreenMenuInstance(plugin, player, menu);
             ActiveMenus[player.Handle].Display();
 
@@ -71,12 +77,19 @@ namespace CS2ScreenMenuAPI
                 return;
 
             ActiveMenus.Remove(player.Handle);
-
         }
 
+        public static void UpdateActiveMenu(CCSPlayerController player, IMenuInstance menu)
+        {
+            if (!CCSPlayer.IsValidPlayer(player))
+                return;
+
+            ActiveMenus[player.Handle] = menu;
+        }
         public static IMenuInstance? GetActiveMenu(CCSPlayerController player)
         {
             return CCSPlayer.IsValidPlayer(player) && ActiveMenus.TryGetValue(player.Handle, out var menu) ? menu : null;
         }
+
     }
 }
