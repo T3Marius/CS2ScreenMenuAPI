@@ -25,6 +25,7 @@ namespace CS2ScreenMenuAPI.Config
         public Menu_Translations Translations { get; set; } = new Menu_Translations();
         public Default_Settings DefaultSettings { get; set; } = new Default_Settings();
         public Sounds_Config Sounds { get; set; } = new Sounds_Config();
+        public Resolution_Settings Resolution { get; set; } = new Resolution_Settings();
         public MenuConfig() { }
 
         public void Initialize()
@@ -67,6 +68,7 @@ namespace CS2ScreenMenuAPI.Config
                     Translations = config.Translations;
                     DefaultSettings = config.DefaultSettings;
                     Sounds = config.Sounds;
+                    Resolution = config.Resolution;
                 }
             }
             catch (Exception ex)
@@ -91,7 +93,6 @@ namespace CS2ScreenMenuAPI.Config
     ""DefaultSettings"": {
         ""MenuType"": ""Both"",
         ""TextColor"": ""Orange"",
-        ""DisabledOptionsColor"": ""White"",
         ""PositionX"": -5.5,
         ""PositionY"": 0,
         ""Background"": true,
@@ -99,6 +100,7 @@ namespace CS2ScreenMenuAPI.Config
         ""BackgroundWidth"": 0.2,
         ""Font"": ""Arial Bold"",
         ""Size"": 32,
+        ""AddResolutionOption"": true,
         ""Spacing"": true,
         ""FreezePlayer"": true,
         ""EnableOptionsCount"": true,
@@ -110,15 +112,31 @@ namespace CS2ScreenMenuAPI.Config
         ""ExitButton"": ""Exit"",
         ""ScrollInfo"": ""[W/S] Scroll"",
         ""SelectInfo"": ""[E] Select"",
-        ""SelectPrefix"": ""‣ ""
+        ""SelectPrefix"": ""‣ "",
+        ""ResolutionOption"": ""Change Resolution"",
+        ""MenuResolutionTitle"": ""Resolution Setup"",
+        ""ResolutionSet"": ""Menu resolution set to: {res}""
     },
     ""Sounds"": {
         ""Select"": ""sounds/buttons/button9"",
-        ""Next"" : ""sounds/buttons/button9"",
+        ""Next"": ""sounds/buttons/button9"",
         ""Back"": ""sounds/buttons/button9"",
         ""Exit"": ""sounds/buttons/button9"",
         ""ScrollUp"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c"",
         ""ScrollDown"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c""
+    },
+    ""Resolutions"": {
+        ""MenuResoltions"": {
+            ""1920x1080"": { ""PositionX"": -9.0, ""PositionY"": 0 },
+            ""1680x1050"": { ""PositionX"": -8.2, ""PositionY"": 0 },
+            ""1600x900"": { ""PositionX"": -9.0, ""PositionY"": 0 },
+            ""1440x1080"": { ""PositionX"": -6.8, ""PositionY"": 0 },
+            ""1280x1080"": { ""PositionX"": -6.0, ""PositionY"": 0 },
+            ""1280x720"": { ""PositionX"": -9.0, ""PositionY"": 0 },
+            ""1280x1024"": { ""PositionX"": -6.3, ""PositionY"": 0 },
+            ""1024x768"": { ""PositionX"": -6.8, ""PositionY"": 0 },
+            ""800x600"": { ""PositionX"": -6.8, ""PositionY"": 0 }
+        }
     }
     /* 
         Buttons mapping:
@@ -147,7 +165,7 @@ namespace CS2ScreenMenuAPI.Config
         Run        - Run
         Walk       - Walk
         Weapon1    - Weapon1
-        Weapon2    - Weapon2
+        Weapon2   - Weapon2
         Zoom       - Zoom
         Tab        - (Custom) 8589934592
     */
@@ -197,7 +215,6 @@ namespace CS2ScreenMenuAPI.Config
     ""DefaultSettings"": {
         ""MenuType"": ""Both"",
         ""TextColor"": ""Orange"",
-        ""DisabledOptionsColor"": ""White"",
         ""PositionX"": -5.5,
         ""PositionY"": 0,
         ""Background"": true,
@@ -205,6 +222,7 @@ namespace CS2ScreenMenuAPI.Config
         ""BackgroundWidth"": 0.2,
         ""Font"": ""Arial Bold"",
         ""Size"": 32,
+        ""AddResolutionOption"": true,
         ""Spacing"": true,
         ""FreezePlayer"": true,
         ""EnableOptionsCount"": true,
@@ -216,15 +234,31 @@ namespace CS2ScreenMenuAPI.Config
         ""ExitButton"": ""Exit"",
         ""ScrollInfo"": ""[W/S] Scroll"",
         ""SelectInfo"": ""[E] Select"",
-        ""SelectPrefix"": ""‣ ""
+        ""SelectPrefix"": ""‣ "",
+        ""ResolutionOption"": ""Change Resolution"",
+        ""MenuResolutionTitle"": ""Resolution Setup"",
+        ""ResolutionSet"": ""Menu resolution set to: {res}""
     },
     ""Sounds"": {
         ""Select"": ""sounds/buttons/button9"",
-        ""Next"" : ""sounds/buttons/button9"",
+        ""Next"": ""sounds/buttons/button9"",
         ""Back"": ""sounds/buttons/button9"",
         ""Exit"": ""sounds/buttons/button9"",
         ""ScrollUp"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c"",
         ""ScrollDown"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c""
+    },
+    ""Resolutions"": {
+        ""MenuResoltions"": {
+            ""1920x1080"": { ""PositionX"": -9.0, ""PositionY"": 0 },
+            ""1680x1050"": { ""PositionX"": -8.2, ""PositionY"": 0 },
+            ""1600x900"": { ""PositionX"": -9.0, ""PositionY"": 0 },
+            ""1440x1080"": { ""PositionX"": -6.8, ""PositionY"": 0 },
+            ""1280x1080"": { ""PositionX"": -6.0, ""PositionY"": 0 },
+            ""1280x720"": { ""PositionX"": -9.0, ""PositionY"": 0 },
+            ""1280x1024"": { ""PositionX"": -6.3, ""PositionY"": 0 },
+            ""1024x768"": { ""PositionX"": -6.8, ""PositionY"": 0 },
+            ""800x600"": { ""PositionX"": -6.8, ""PositionY"": 0 }
+        }
     }
     /* 
     Buttons mapping:
@@ -260,7 +294,6 @@ namespace CS2ScreenMenuAPI.Config
 }";
             try
             {
-                // Remove block comments from both default and user JSON.
                 string cleanedDefault = RemoveJsonComments(defaultConfigContent);
                 string userConfigContent = File.ReadAllText(_configPath);
                 string cleanedUserConfig = RemoveJsonComments(userConfigContent);
@@ -334,6 +367,9 @@ namespace CS2ScreenMenuAPI.Config
         public string ScrollInfo { get; set; } = "[W/S] Scroll";
         public string SelectInfo { get; set; } = "[E] Select";
         public string SelectPrefix { get; set; } = "‣ ";
+        public string ResolutionOption { get; set; } = "Change Resolution";
+        public string MenuResolutionTitle { get; set; } = "Resolution Setup";
+        public string ResolutionSet { get; set; } = "Menu resolution set to: {res}";
     }
 
     public class Default_Settings
@@ -343,8 +379,6 @@ namespace CS2ScreenMenuAPI.Config
 
         [JsonConverter(typeof(ColorJsonConverter))]
         public Color TextColor { get; set; } = Color.Orange;
-        [JsonConverter(typeof(ColorJsonConverter))]
-        public Color DisabledOptionsColor { get; set; } = Color.White;
         public float PositionX { get; set; } = -5.5f;
         public float PositionY { get; set; } = 0f;
         public bool Background { get; set; } = true;
@@ -352,9 +386,32 @@ namespace CS2ScreenMenuAPI.Config
         public float BackgroundWidth { get; set; } = 0.2f;
         public string Font { get; set; } = "Arial Bold";
         public float Size { get; set; } = 32;
+        public bool AddResolutionOption { get; set; } = true;
         public bool Spacing { get; set; } = true;
         public bool FreezePlayer { get; set; } = true;
         public bool EnableOptionsCount { get; set; } = true;
         public bool EnableDisabledOptionsCount { get; set; } = true;
+    }
+
+    public class Resolution_Settings
+    {
+        public Dictionary<string, MenuResolution> MenuResoltions { get; set; } = new Dictionary<string, MenuResolution>
+        {
+            { "1920x1080", new MenuResolution { PositionX = -9.0f, PositionY = 0f } },
+            { "1680x1050", new MenuResolution { PositionX = -8.2f, PositionY = 0f } },
+            { "1600x900", new MenuResolution { PositionX = -9.0f, PositionY = 0f } },
+            { "1440x1080", new MenuResolution { PositionX = -6.8f, PositionY = 0f } },
+            { "1280x1080", new MenuResolution { PositionX = -6.0f, PositionY = 0f } },
+            { "1280x720", new MenuResolution { PositionX = -9.0f, PositionY = 0f } },
+            { "1280x1024", new MenuResolution { PositionX = -6.3f, PositionY = 0f } },
+            { "1024x768", new MenuResolution { PositionX = -6.8f, PositionY = 0f } },
+            { "800x600", new MenuResolution { PositionX = -6.8f, PositionY = 0f } },
+        };
+    }
+
+    public class MenuResolution
+    {
+        public float PositionX { get; set; }
+        public float PositionY { get; set; }
     }
 }

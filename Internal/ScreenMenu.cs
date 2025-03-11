@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿// ScreenMenu.cs - Update the AddSubMenu method
+using System.Drawing;
 using CounterStrikeSharp.API.Core;
 using CS2ScreenMenuAPI.Config;
 using CS2ScreenMenuAPI.Enums;
@@ -68,6 +69,11 @@ namespace CS2ScreenMenuAPI.Internal
         {
             get => _config.DefaultSettings.FreezePlayer;
             set => _config.DefaultSettings.FreezePlayer = value;
+        }
+        public bool AddResolutionOption
+        {
+            get => _config.DefaultSettings.AddResolutionOption;
+            set => _config.DefaultSettings.AddResolutionOption = value;
         }
 
         public ScreenMenu(string title, BasePlugin plugin) : base(title)
