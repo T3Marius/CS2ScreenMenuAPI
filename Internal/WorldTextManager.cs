@@ -10,12 +10,10 @@ namespace CS2ScreenMenuAPI.Internal
     {
         internal static Dictionary<uint, CCSPlayerController> WorldTextOwners = new();
         internal static Dictionary<uint, (Vector Position, QAngle Angles)> EntityTransforms = new();
-        internal static MenuConfig _config = new MenuConfig();
 
         public class MenuTextEntities
         {
-            public CPointWorldText? EnabledOptions { get; set; }
-            public CPointWorldText? DisabledOptions { get; set; }
+            public CPointWorldText? MainEntity { get; set; } // TODO: Find a way to use another entity as disabled options without bugs.
         }
 
         internal static MenuTextEntities Create(
@@ -35,15 +33,48 @@ namespace CS2ScreenMenuAPI.Internal
             if (pawnBase == null)
                 return new MenuTextEntities();
 
-            if (pawnBase.LifeState != (byte)LifeState_t.LIFE_DEAD)
+            var viewModel = player.EnsureCustomView(0);
+            if (viewModel == null)
+                return new MenuTextEntities();
+
+            var pawn = pawnBase.As<CCSPlayerPawn>();
+            if (pawn == null)
+                return new MenuTextEntities();
+
+            bool isSpectating = pawn.LifeState == (byte)LifeState_t.LIFE_DEAD;
+            if (isSpectating)
             {
-                return CreateForAlive(player, text, size, color, font, shiftX, shiftY, drawBackground, backgroundHeight, backgroundWidth);
+                if (player.ControllingBot)
+                    return new MenuTextEntities();
+
+                var observerServices = pawnBase.ObserverServices;
+                if (observerServices == null)
+                    return new MenuTextEntities();
+
+                var observerPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
+                if (observerPawn == null || !observerPawn.IsValid)
+                    return new MenuTextEntities();
+
+                pawn = observerPawn;
             }
-            else
-            {
-                return CreateForDead(player, text, size, color, font, shiftX, shiftY, drawBackground, backgroundHeight, backgroundWidth);
-            }
+
+            return CreateWorldText(
+                effectiveOwner: player,
+                pawn: pawn,
+                viewmodel: viewModel,
+                text: text,
+                size: size,
+                color: color,
+                font: font,
+                shiftX: shiftX,
+                shiftY: shiftY,
+                drawBackground: drawBackground,
+                backgroundHeight: backgroundHeight,
+                backgroundWidth: backgroundWidth,
+                isSpectating: isSpectating
+            );
         }
+
 
         internal static MenuTextEntities CreateForAlive(
             CCSPlayerController player,
@@ -86,6 +117,7 @@ namespace CS2ScreenMenuAPI.Internal
                 isSpectating: false
             );
         }
+
 
         internal static MenuTextEntities CreateForDead(
             CCSPlayerController player,
@@ -141,20 +173,21 @@ namespace CS2ScreenMenuAPI.Internal
             );
         }
 
+        // In WorldTextManager class
         private static MenuTextEntities CreateWorldText(
-            CCSPlayerController effectiveOwner,
-            CCSPlayerPawn pawn,
-            CCSGOViewModel viewmodel,
-            string text,
-            float size,
-            Color? color,
-            string font,
-            float shiftX,
-            float shiftY,
-            bool drawBackground,
-            float backgroundHeight,
-            float backgroundWidth,
-            bool isSpectating
+           CCSPlayerController effectiveOwner,
+           CCSPlayerPawn pawn,
+           CCSGOViewModel viewmodel,
+           string text,
+           float size,
+           Color? color,
+           string font,
+           float shiftX,
+           float shiftY,
+           bool drawBackground,
+           float backgroundHeight,
+           float backgroundWidth,
+           bool isSpectating
         )
         {
             var entities = new MenuTextEntities();
@@ -172,9 +205,10 @@ namespace CS2ScreenMenuAPI.Internal
                 X = 0
             };
 
+
             var finalPos = pawn.AbsOrigin! + offset + new Vector(0, 0, pawn.ViewOffset.Z);
 
-            entities.EnabledOptions = CreateEntity(
+            entities.MainEntity = CreateEntity(
                 effectiveOwner,
                 viewmodel,
                 finalPos,
@@ -188,29 +222,10 @@ namespace CS2ScreenMenuAPI.Internal
                 backgroundWidth
             );
 
-            if (entities.EnabledOptions != null)
-            {
-                Vector disabledPos = finalPos - forward * 0.5f;
-
-                entities.DisabledOptions = CreateEntity(
-                    effectiveOwner,
-                    viewmodel,
-                    disabledPos,
-                    angles,
-                    "",
-                    size,
-                    _config.DefaultSettings.DisabledOptionsColor,
-                    font,
-                    false,
-                    0,
-                    0
-                );
-            }
-
             return entities;
         }
-
-        private static CPointWorldText? CreateEntity(
+        // In WorldTextManager class
+        public static CPointWorldText? CreateEntity(
             CCSPlayerController effectiveOwner,
             CCSGOViewModel viewmodel,
             Vector position,
@@ -237,6 +252,7 @@ namespace CS2ScreenMenuAPI.Internal
             entity.JustifyHorizontal = PointWorldTextJustifyHorizontal_t.POINT_WORLD_TEXT_JUSTIFY_HORIZONTAL_LEFT;
             entity.JustifyVertical = PointWorldTextJustifyVertical_t.POINT_WORLD_TEXT_JUSTIFY_VERTICAL_CENTER;
             entity.ReorientMode = PointWorldTextReorientMode_t.POINT_WORLD_TEXT_REORIENT_NONE;
+            entity.RenderMode = RenderMode_t.kRenderNormal;
 
             if (drawBackground)
             {
@@ -255,5 +271,6 @@ namespace CS2ScreenMenuAPI.Internal
 
             return entity;
         }
+
     }
 }
