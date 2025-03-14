@@ -3,13 +3,13 @@ using CS2ScreenMenuAPI.Interfaces;
 using CS2ScreenMenuAPI.Internal;
 using CS2ScreenMenuAPI.Enums;
 using CS2ScreenMenuAPI.Extensions;
+using CounterStrikeSharp.API;
 
 namespace CS2ScreenMenuAPI
 {
     public static class MenuAPI
     {
         private static readonly Dictionary<IntPtr, IMenuInstance> ActiveMenus = [];
-
         public static void OpenMenu(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
         {
             if (!CCSPlayer.IsValidPlayer(player))
@@ -17,20 +17,20 @@ namespace CS2ScreenMenuAPI
 
             CloseActiveMenu(player);
 
-            CCSPlayer.InitializePlayerWorldText(player);
-
-            plugin.AddTimer(0.1f, () =>
+            WorldTextManager.Create(player, "       ", drawBackground: false); // fix the bug where first menu open didn't create the entity
+            Server.NextFrame(() =>
             {
                 ActiveMenus[player.Handle] = new ScreenMenuInstance(plugin, player, menu);
                 ActiveMenus[player.Handle].Display();
-            });
-            if (menu.MenuType == MenuType.Scrollable || menu.MenuType == MenuType.Both)
-            {
-                if (menu.FreezePlayer)
+
+                if (menu.MenuType == MenuType.Scrollable || menu.MenuType == MenuType.Both)
                 {
-                    player.Freeze();
+                    if (menu.FreezePlayer)
+                    {
+                        player.Freeze();
+                    }
                 }
-            }
+            });
         }
 
         public static void OpenSubMenu(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
@@ -78,7 +78,14 @@ namespace CS2ScreenMenuAPI
 
             ActiveMenus.Remove(player.Handle);
         }
-
+        public static void ClearAllActiveMenus()
+        {
+            foreach (var menu in ActiveMenus.Values)
+            {
+                menu?.Close();
+            }
+            ActiveMenus.Clear();
+        }
         public static void UpdateActiveMenu(CCSPlayerController player, IMenuInstance menu)
         {
             if (!CCSPlayer.IsValidPlayer(player))

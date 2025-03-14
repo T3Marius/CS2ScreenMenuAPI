@@ -44,7 +44,7 @@ namespace CS2ScreenMenuAPI.Extensions
             writer.WriteStringValue(colorString);
         }
     }
-    public static class Player
+    public static class PlayerExtensions
     {
         public static void Freeze(this CCSPlayerController player)
         {
@@ -54,6 +54,54 @@ namespace CS2ScreenMenuAPI.Extensions
                 pawn.ChangeMoveType(MoveType_t.MOVETYPE_OBSOLETE);
             }
         }
+        public static void AdjustMenuForFOV(CCSPlayerController player, ref float positionX, ref float positionY, ref float menuSize)
+        {
+            var fov = player.DesiredFOV == 0 ? 90 : player.DesiredFOV;
+            if (fov == 90)
+                return;
+
+            float fovRatio = fov / 90.0f;
+            menuSize = 32.0f * fovRatio;
+
+            float baseX = positionX;
+
+            if (Math.Abs(fov - 100f) < 0.01f)
+            {
+                positionX = baseX * (fovRatio * 1.1f) - (fovRatio - 1.0f) * 0.15f;
+            }
+
+            else if (fov > 90 && fov < 110)
+            {
+                positionX = baseX * (fovRatio * 1.1f) - (fovRatio - 1.0f) * 0.75f;
+            }
+            else
+            {
+                positionX = baseX * (fovRatio * 1.1f) - (fovRatio - 1.0f) * 1.5f;
+            }
+
+            float baseY = positionY;
+            if (fov > 90)
+            {
+                positionY = baseY - ((fov - 90) * 0.015f);
+            }
+            else if (fov < 90)
+            {
+                positionY = baseY + ((90 - fov) * 0.015f);
+            }
+
+            if (fov > 120)
+            {
+                positionX -= (fov - 120) * 0.08f;
+            }
+            else if (fov < 50)
+            {
+                positionX += (50 - fov) * 0.03f;
+            }
+
+            menuSize = Math.Max(16.0f, Math.Min(menuSize, 48.0f));
+        }
+
+
         public static void Unfreeze(this CCSPlayerController player)
         {
             CCSPlayerPawn? pawn = player.PlayerPawn.Value;
