@@ -12,8 +12,8 @@ namespace CS2ScreenMenuAPI
         private static readonly Dictionary<IntPtr, IMenuInstance> ActiveMenus = [];
         public static void OpenMenu(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
         {
-            if (!CCSPlayer.IsValidPlayer(player))
-                throw new ArgumentException("Player is null or invalid", nameof(player));
+            if (player == null)
+                return;
 
             CloseActiveMenu(player);
 
@@ -27,7 +27,10 @@ namespace CS2ScreenMenuAPI
                 {
                     if (menu.FreezePlayer)
                     {
-                        player.Freeze();
+                        if (player.IsValid || !player.IsBot || !player.IsHLTV || player.Connected == PlayerConnectedState.PlayerConnected)
+                        {
+                            player.Freeze();
+                        }
                     }
                 }
             });
@@ -35,8 +38,8 @@ namespace CS2ScreenMenuAPI
 
         public static void OpenSubMenu(BasePlugin plugin, CCSPlayerController player, ScreenMenu menu)
         {
-            if (!CCSPlayer.IsValidPlayer(player))
-                throw new ArgumentException("Player is null or invalid", nameof(player));
+            if (player == null)
+                return;
 
             if (ActiveMenus.TryGetValue(player.Handle, out var activeMenu))
             {
@@ -55,25 +58,29 @@ namespace CS2ScreenMenuAPI
             {
                 if (menu.FreezePlayer)
                 {
-                    player.Freeze();
+                    if (player.IsValid || !player.IsBot || !player.IsHLTV || player.Connected == PlayerConnectedState.PlayerConnected)
+                    {
+                        player.Freeze();
+                    }
                 }
             }
         }
 
         public static void CloseActiveMenu(CCSPlayerController player)
         {
-            if (!CCSPlayer.IsValidPlayer(player)) return;
+            if (player == null)
+                return;
 
             if (ActiveMenus.TryGetValue(player.Handle, out var menu))
             {
-                menu.Close();
+                menu.Close();             
                 ActiveMenus.Remove(player.Handle);
             }
         }
 
         public static void RemoveActiveMenu(CCSPlayerController player)
         {
-            if (!CCSPlayer.IsValidPlayer(player))
+            if (player == null)
                 return;
 
             ActiveMenus.Remove(player.Handle);
@@ -88,7 +95,7 @@ namespace CS2ScreenMenuAPI
         }
         public static void UpdateActiveMenu(CCSPlayerController player, IMenuInstance menu)
         {
-            if (!CCSPlayer.IsValidPlayer(player))
+            if (player == null)
                 return;
 
             ActiveMenus[player.Handle] = menu;
