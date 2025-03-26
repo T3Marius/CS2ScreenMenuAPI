@@ -65,6 +65,11 @@ namespace CS2ScreenMenuAPI.Internal
             get => _config.DefaultSettings.EnableOptionsCount;
             set => _config.DefaultSettings.EnableOptionsCount = value;
         }
+        public bool EnableDisabledOptionsCount
+        {
+            get => _config.DefaultSettings.EnableDisabledOptionsCount;
+            set => _config.DefaultSettings.EnableDisabledOptionsCount = value;
+        }
         public bool FreezePlayer
         {
             get => _config.DefaultSettings.FreezePlayer;
