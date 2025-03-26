@@ -118,12 +118,14 @@ namespace CS2ScreenMenuAPI.Config
         ""ResolutionSet"": ""Menu resolution set to: {res}""
     },
     ""Sounds"": {
-        ""Select"": ""sounds/buttons/button9"",
-        ""Next"": ""sounds/buttons/button9"",
-        ""Back"": ""sounds/buttons/button9"",
-        ""Exit"": ""sounds/buttons/button9"",
-        ""ScrollUp"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c"",
-        ""ScrollDown"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c""
+        ""MenuSoundsVolume"": 0.7,
+        ""SoundEventFile"": ""soundevents/menu_sounds.vsndevts"",
+        ""Select"": ""menu.Select"",
+        ""Next"": ""menu.Select"",
+        ""Back"": ""menu.Select"",
+        ""Exit"": ""menu.Close"",
+        ""ScrollUp"": ""UI.ButtonRolloverLarge"",
+        ""ScrollDown"": ""UI.ButtonRolloverLarge""
     },
     ""Resolutions"": {
         ""MenuResoltions"": {
@@ -240,12 +242,14 @@ namespace CS2ScreenMenuAPI.Config
         ""ResolutionSet"": ""Menu resolution set to: {res}""
     },
     ""Sounds"": {
-        ""Select"": ""sounds/buttons/button9"",
-        ""Next"": ""sounds/buttons/button9"",
-        ""Back"": ""sounds/buttons/button9"",
-        ""Exit"": ""sounds/buttons/button9"",
-        ""ScrollUp"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c"",
-        ""ScrollDown"": ""sounds/ui/csgo_ui_store_rollover.vsnd_c""
+        ""MenuSoundsVolume"": 0.7,
+        ""SoundEventFile"": ""soundevents/menu_sounds.vsndevts"",
+        ""Select"": ""menu.Select"",
+        ""Next"": ""menu.Select"",
+        ""Back"": ""menu.Select"",
+        ""Exit"": ""menu.Close"",
+        ""ScrollUp"": ""UI.ButtonRolloverLarge"",
+        ""ScrollDown"": ""UI.ButtonRolloverLarge""
     },
     ""Resolutions"": {
         ""MenuResoltions"": {
@@ -350,13 +354,15 @@ namespace CS2ScreenMenuAPI.Config
 
     public class Sounds_Config
     {
-        public string Select { get; set; } = "sounds/buttons/button9";
-        public string Next { get; set; } = "sounds/buttons/button9";
-        public string Back { get; set; } = "sounds/buttons/button9";
-        public string Exit { get; set; } = "sounds/buttons/button9";
+        public float MenuSoundsVolume { get; set; } = 0.7f;
+        public string SoundEventFile { get; set; } = "soundevents/menu_sounds.vsndevts";
+        public string Select { get; set; } = "menu.Select";
+        public string Next { get; set; } = "menu.Select";
+        public string Back { get; set; } = "menu.Select";
+        public string Exit { get; set; } = "menu.Close";
 
-        public string ScrollUp { get; set; } = "sounds/ui/csgo_ui_store_rollover.vsnd_c";
-        public string ScrollDown { get; set; } = "sounds/ui/csgo_ui_store_rollover.vsnd_c";
+        public string ScrollUp { get; set; } = "UI.ButtonRolloverLarge";
+        public string ScrollDown { get; set; } = "UI.ButtonRolloverLarge";
     }
 
     public class Menu_Translations
