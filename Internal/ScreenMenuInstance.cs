@@ -9,6 +9,7 @@ using CS2ScreenMenuAPI.Extensions.PlayerSettings;
 using System.Collections.Concurrent;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
+using CounterStrikeSharp.API.Modules.Utils;
 
 namespace CS2ScreenMenuAPI.Internal
 {
@@ -89,10 +90,15 @@ namespace CS2ScreenMenuAPI.Internal
         private void RegisterListenersNEvents()
         {
             _plugin.RegisterListener<Listeners.OnTick>(Update);
+            _plugin.RegisterListener<Listeners.OnServerPrecacheResources>(OnServerPrecacheResources);
             _plugin.RegisterListener<Listeners.CheckTransmit>(CheckTransmitListener);
             _plugin.RegisterListener<Listeners.OnEntityDeleted>(OnEntityDeleted);
             _plugin.RegisterEventHandler<EventRoundStart>(OnRoundStart, HookMode.Pre);
             _plugin.RegisterEventHandler<EventRoundEnd>(OnRoundEnd, HookMode.Pre);
+        }
+        private void OnServerPrecacheResources(ResourceManifest resource)
+        {
+            resource.AddResource(_config.Sounds.SoundEventFile);
         }
         private void OnEntityDeleted(CEntityInstance entity)
         {
@@ -214,7 +220,6 @@ namespace CS2ScreenMenuAPI.Internal
 
         private void MoveSelection(int direction)
         {
-            // Cache values to avoid recalculation
             int totalLines = GetTotalLines();
             int currentPageOffset = CurrentPage * NUM_PER_PAGE;
             int selectableCount = Math.Min(NUM_PER_PAGE, _menu.MenuOptions.Count - currentPageOffset);
@@ -258,7 +263,8 @@ namespace CS2ScreenMenuAPI.Internal
                     {
                         if (!string.IsNullOrEmpty(_config.Sounds.ScrollUp))
                         {
-                            _player.ExecuteClientCommand($"play {_config.Sounds.ScrollUp}");
+                            RecipientFilter filter = [_player];
+                            _player.EmitSound(_config.Sounds.ScrollUp, filter, _config.Sounds.MenuSoundsVolume);
                         }
                         MoveSelection(-1);
                         Display();
@@ -271,7 +277,8 @@ namespace CS2ScreenMenuAPI.Internal
                     {
                         if (!string.IsNullOrEmpty(_config.Sounds.ScrollDown))
                         {
-                            _player.ExecuteClientCommand($"play {_config.Sounds.ScrollDown}");
+                            RecipientFilter filter = [_player];
+                            _player.EmitSound(_config.Sounds.ScrollDown, filter, _config.Sounds.MenuSoundsVolume);
                         }
                         MoveSelection(1);
                         Display();
@@ -331,15 +338,12 @@ namespace CS2ScreenMenuAPI.Internal
                 _menu.PositionX = menuRes.PositionX;
             }
 
-            // Adjust for FOV
             float posX = _menu.PositionX;
             float posY = _menu.PositionY;
             float menuSize = _menu.Size;
 
-            // Get the player's FOV and adjust the menu parameters
             PlayerExtensions.AdjustMenuForFOV(_player, ref posX, ref posY, ref menuSize);
 
-            // Build the menu text
             _menuTextBuilder.Clear();
             BuildMenuText(_menuTextBuilder);
 
@@ -672,7 +676,8 @@ namespace CS2ScreenMenuAPI.Internal
             {
                 if (!string.IsNullOrEmpty(_config.Sounds.Select))
                 {
-                    _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                    RecipientFilter filter = [_player];
+                    _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.MenuSoundsVolume);
                 }
                 OpenResolutionMenu(_menu);
                 return;
@@ -696,7 +701,8 @@ namespace CS2ScreenMenuAPI.Internal
                         {
                             if (!string.IsNullOrEmpty(_config.Sounds.Select))
                             {
-                                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                                RecipientFilter filter = [_player];
+                                _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.MenuSoundsVolume);
                             }
                             SmoothTransitionToMenu(submenu);
                         }
@@ -705,7 +711,8 @@ namespace CS2ScreenMenuAPI.Internal
                             option.OnSelect(_player, option);
                             if (!string.IsNullOrEmpty(_config.Sounds.Select))
                             {
-                                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                                RecipientFilter filter = [_player];
+                                _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.MenuSoundsVolume);
                             }
 
                             switch (_menu.PostSelectAction)
@@ -745,7 +752,8 @@ namespace CS2ScreenMenuAPI.Internal
 
                         if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                         {
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            RecipientFilter filter = [_player];
+                            _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                         }
                         SmoothTransitionToMenu(_menu.ParentMenu);
                     }
@@ -759,7 +767,8 @@ namespace CS2ScreenMenuAPI.Internal
                         {
                             if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                             {
-                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                                RecipientFilter filter = [_player];
+                                _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume); ;
                             }
                             Close();
                         }
@@ -775,7 +784,8 @@ namespace CS2ScreenMenuAPI.Internal
 
                         if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                         {
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            RecipientFilter filter = [_player];
+                            _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                         }
                         Close();
                     }
@@ -795,7 +805,8 @@ namespace CS2ScreenMenuAPI.Internal
 
                             if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                             {
-                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                                RecipientFilter filter = [_player];
+                                _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                             }
                             Close();
                         }
@@ -810,7 +821,8 @@ namespace CS2ScreenMenuAPI.Internal
                         {
                             if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                             {
-                                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                                RecipientFilter filter = [_player];
+                                _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume); ;
                             }
                             Close();
                         }
@@ -837,7 +849,8 @@ namespace CS2ScreenMenuAPI.Internal
                     {
                         if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                         {
-                            _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                            RecipientFilter filter = [_player];
+                            _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                         }
                         Close();
                     }
@@ -853,7 +866,8 @@ namespace CS2ScreenMenuAPI.Internal
 
                     if (!string.IsNullOrEmpty(_config.Sounds.Exit))
                     {
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        RecipientFilter filter = [_player];
+                        _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                     }
                     Close();
                 }
@@ -889,7 +903,8 @@ namespace CS2ScreenMenuAPI.Internal
                 Display();
                 if (!string.IsNullOrEmpty(_config.Sounds.Next))
                 {
-                    _player.ExecuteClientCommand($"play {_config.Sounds.Next}");
+                    RecipientFilter filter = [_player];
+                    _player.EmitSound(_config.Sounds.Next, filter, _config.Sounds.MenuSoundsVolume);
                 }
             }
         }
@@ -924,7 +939,8 @@ namespace CS2ScreenMenuAPI.Internal
                 Display();
                 if (!string.IsNullOrEmpty(_config.Sounds.Back))
                 {
-                    _player.ExecuteClientCommand($"play {_config.Sounds.Back}");
+                    RecipientFilter filter = [_player];
+                    _player.EmitSound(_config.Sounds.Back, filter, _config.Sounds.MenuSoundsVolume);
                 }
             }
         }
@@ -939,7 +955,8 @@ namespace CS2ScreenMenuAPI.Internal
 
             if (key == 0 && _menu.AddResolutionOption)
             {
-                _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                RecipientFilter filter = [_player];
+                _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.MenuSoundsVolume);
                 OpenResolutionMenu(_menu);
                 return;
             }
@@ -948,7 +965,8 @@ namespace CS2ScreenMenuAPI.Internal
             {
                 if (_menu.HasExitOption)
                     Close();
-                _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                RecipientFilter filter = [_player];
+                _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                 return;
             }
 
@@ -958,13 +976,15 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     if (_menu.ParentMenu != null)
                     {
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        RecipientFilter filter = [_player];
+                        _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                         SmoothTransitionToMenu(_menu.ParentMenu);
                     }
                     else
                     {
                         Close();
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Exit}");
+                        RecipientFilter filter = [_player];
+                        _player.EmitSound(_config.Sounds.Exit, filter, _config.Sounds.MenuSoundsVolume);
                     }
                     return;
                 }
@@ -1040,7 +1060,8 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     if (!string.IsNullOrEmpty(_config.Sounds.Select))
                     {
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                        RecipientFilter filter = [_player];
+                        _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.MenuSoundsVolume);
                     }
                     SmoothTransitionToMenu(submenu);
                 }
@@ -1048,7 +1069,8 @@ namespace CS2ScreenMenuAPI.Internal
                 {
                     if (!string.IsNullOrEmpty(_config.Sounds.Select))
                     {
-                        _player.ExecuteClientCommand($"play {_config.Sounds.Select}");
+                        RecipientFilter filter = [_player];
+                        _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.MenuSoundsVolume);
                     }
                     option.OnSelect(_player, option);
 
