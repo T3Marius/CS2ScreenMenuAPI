@@ -210,6 +210,14 @@ ControlInfo =""[{0}/{1}] Scroll\n[{2}] Select""
 SelectRes = ""Select Your Game Resolution""
 ChangeRes = ""Change Resolution""
 
+[Lang.tr]
+Prev = ""Geri""
+Next = ""İleri""
+Close = ""Kapat""
+ControlInfo = ""[{0}/{1}] Kaydır\n[{2}] Seç""
+SelectRes = ""Oyun Çözünürlüğünüzü Seçin""
+ChangeRes = ""Çözünürlük Değiştir""
+
 ";
 
             File.WriteAllText(ConfigPath, defaultConfig);
