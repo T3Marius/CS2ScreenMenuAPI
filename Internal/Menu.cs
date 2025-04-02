@@ -239,6 +239,7 @@ namespace CS2ScreenMenuAPI
             bool showBackButton = CurrentPage > 0 || (IsSubMenu && ParentMenu != null);
             bool showNextButton = CurrentPage < totalPages - 1;
             string prefix = _config.Settings.ScrollPrefix;
+            string controlInfoText = $"{_player.Localizer("ControlInfo", ScrollUpKey, ScrollDownKey, SelectKey)}";
 
             string displayTitle = ShowPageCount
                 ? $"{Title}:    ({CurrentPage + 1}/{totalPages})"
@@ -365,6 +366,15 @@ namespace CS2ScreenMenuAPI
 
                 menuContent.AppendLine("  " + resText);
                 menuBackground.AppendLine();
+            }
+
+            if (MenuType != MenuType.KeyPress)
+            {
+                menuContent.AppendLine();
+                menuBackground.AppendLine();
+
+                menuBackground.AppendLine(controlInfoText);
+                menuContent.AppendLine();
             }
 
             for (int i = 0; i < maxTextLength + 1; i++)
