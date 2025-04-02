@@ -1,21 +1,12 @@
 ﻿using CounterStrikeSharp.API.Core;
-using CS2ScreenMenuAPI.Interfaces;
 
-namespace CS2ScreenMenuAPI.Internal
+namespace CS2ScreenMenuAPI
 {
-    internal class MenuOption : IMenuOption
+    public class MenuOption : IMenuOption
     {
-        public string Text { get; set; }
-        public bool Disabled { get; set; }
-        public Action<CCSPlayerController, IMenuOption> OnSelect { get; set; }
-        public ScreenMenu? SubMenu { get; set; }
-
-        public MenuOption(string text, Action<CCSPlayerController, IMenuOption> onSelect, bool disabled = false)
-        {
-            Text = text;
-            OnSelect = onSelect;
-            Disabled = disabled;
-            SubMenu = null;
-        }
+        public string Text { get; set; } = string.Empty;
+        public bool IsDisabled { get; set; } = false;
+        public Menu? SubMenu { get; set; }
+        public Action<CCSPlayerController, IMenuOption> Callback { get; set; } = (_, _) => { };
     }
 }

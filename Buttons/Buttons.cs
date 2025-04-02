@@ -1,10 +1,10 @@
 ﻿using CounterStrikeSharp.API;
 
-namespace CS2ScreenMenuAPI.Buttons
+namespace CS2ScreenMenuAPI;
+
+public static class Buttons
 {
-    public class Buttons
-    {
-        public static readonly Dictionary<string, PlayerButtons> ButtonMapping = new()
+    public static readonly IReadOnlyDictionary<string, PlayerButtons> ButtonMapping = new Dictionary<string, PlayerButtons>
     {
         { "Alt1", PlayerButtons.Alt1 },
         { "Alt2", PlayerButtons.Alt2 },
@@ -34,5 +34,4 @@ namespace CS2ScreenMenuAPI.Buttons
         { "Zoom", PlayerButtons.Zoom },
         { "Tab", (PlayerButtons)8589934592 }
     };
-    }
 }

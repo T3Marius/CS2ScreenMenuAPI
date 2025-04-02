@@ -1,28 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
-    <OutputPath>bin\Release\addons\counterstrikesharp\shared\CS2ScreenMenuAPI\</OutputPath>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <Configuration>Release</Configuration>
-    <DebugType>none</DebugType>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.312" />
-    <PackageReference Include="Newtonsoft.json" Version="13.0.3" />
-    <PackageReference Include="System.Drawing.Common" Version="9.0.2" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+		<OutputPath>bin\Release\addons\counterstrikesharp\shared\CS2ScreenMenuAPI\</OutputPath>
+		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+		<Configuration>Release</Configuration>
+		<DebugType>none</DebugType>
+	</PropertyGroup>
 
 	<ItemGroup>
-		<None Update="Newtonsoft.Json.dll">
+		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.314" />
+		<PackageReference Include="Dapper" Version="2.1.66" />
+		<PackageReference Include="MySqlConnector" Version="2.4.0" />
+		<PackageReference Include="Tomlyn" Version="0.19.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="Tomlyn.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
-	
 
 </Project>
