@@ -133,7 +133,7 @@ namespace Example
             Menu subMenu = new (player, this)
             {
                 IsSubMenu = true,
-                PrevMenu = TestMenu // when you hit 7. Back it will send you to the TestMenu
+                PrevMenu = TestMenu(player) // when you hit 7. Back it will send you to the TestMenu
             };
 
             subMenu.AddItem("SubOption 1", (p, o) =>
