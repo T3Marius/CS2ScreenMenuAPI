@@ -1,6 +1,5 @@
 ﻿using System.Drawing;
 using System.Text;
-using CS2ScreenMenuAPI;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -28,7 +27,12 @@ namespace CS2ScreenMenuAPI
         private string SelectKey = "E";
         private CCSGOViewModel? _oldViewModel;
 
-        public Menu? ParentMenu { get; set; } = null;
+        public Menu? PrevMenu { get; set; } = null;
+        public Menu? ParentMenu
+        {
+            get => PrevMenu;
+            set => PrevMenu = value;
+        }
         public Config _config { get; set; } = new Config();
         public string Title { get; set; } = string.Empty;
         public List<IMenuOption> Options { get; } = new();
@@ -42,6 +46,7 @@ namespace CS2ScreenMenuAPI
         public MenuType MenuType = MenuType.KeyPress;
         public bool HasExitButon { get; set; }
         public bool ShowPageCount { get; set; }
+        public bool ShowControlsInfo { get; set; }
         public bool ShowDisabledOptionNum { get; set; }
         public bool IsSubMenu { get; set; } = false;
         public Color OptionColor { get; set; }
@@ -70,7 +75,6 @@ namespace CS2ScreenMenuAPI
                 _isClosed = true;
                 _isResolutionMenuShown = true;
 
-
                 CreateResolutionMenu(_player, _plugin, () =>
                 {
                     Resolution playerRes = GetPlayerResolution(_player);
@@ -81,7 +85,6 @@ namespace CS2ScreenMenuAPI
                     MenuAPI.SetActiveMenu(_player, this);
                     Display();
                 });
-
             }
             else
             {
@@ -91,9 +94,9 @@ namespace CS2ScreenMenuAPI
                 Display();
             }
         }
+
         private void RegisterKeyCommands()
         {
-
             for (int i = 0; i <= 9; i++)
             {
                 string commandName = $"css_{i}";
@@ -122,10 +125,11 @@ namespace CS2ScreenMenuAPI
             });
         }
 
-        public void Refresh() => Display();
+        public void Refresh() => UpdateMenuContent();
 
         public void Display()
         {
+
             if (MenuType != MenuType.KeyPress && _config.Settings.FreezePlayer)
             {
                 _player.Freeze();
@@ -135,7 +139,7 @@ namespace CS2ScreenMenuAPI
             {
                 ClearDisplay();
                 _player.CreateFakeWorldText(this);
-                Server.NextFrame(() => CreateDisplay());
+                Server.NextFrame(() => CreateDisplay(_player));
             }
             else
             {
@@ -149,7 +153,7 @@ namespace CS2ScreenMenuAPI
             {
                 ClearDisplay();
                 _player.CreateFakeWorldText(this);
-                Server.NextFrame(() => CreateDisplay());
+                Server.NextFrame(() => CreateDisplay(_player));
                 return;
             }
 
@@ -169,20 +173,22 @@ namespace CS2ScreenMenuAPI
             {
                 ClearDisplay();
                 _player.CreateFakeWorldText(this);
-                Server.NextFrame(() => CreateDisplay());
+                Server.NextFrame(() => CreateDisplay(_player));
             }
         }
 
-        private void CreateDisplay()
+        private void CreateDisplay(CCSPlayerController? player = null)
         {
+            player ??= _player;
+
             StringBuilder menuContent = new();
             StringBuilder menuBackground = new();
             BuildMenuText(menuContent, menuBackground);
 
-            var vectorData = DisplayManager.FindVectorData(_player, MenuPositionX);
+            var vectorData = DisplayManager.FindVectorData(player, MenuPositionX);
             if (!vectorData.HasValue) return;
 
-            CCSGOViewModel? viewModel = DisplayManager.EnsureCustomView(_player);
+            CCSGOViewModel? viewModel = DisplayManager.EnsureCustomView(player);
             if (viewModel == null) return;
 
             _oldViewModel = viewModel;
@@ -233,13 +239,14 @@ namespace CS2ScreenMenuAPI
                 Utilities.SetStateChanged(_menuBackgroundText, "CPointWorldText", "m_messageText");
             }
         }
+
         private void BuildMenuText(StringBuilder menuContent, StringBuilder menuBackground)
         {
             int totalPages = (int)Math.Ceiling(Options.Count / (double)ItemsPerPage);
-            bool showBackButton = CurrentPage > 0 || (IsSubMenu && ParentMenu != null);
+            bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
             bool showNextButton = CurrentPage < totalPages - 1;
+            bool hasControlsInfo = MenuType != MenuType.KeyPress;
             string prefix = _config.Settings.ScrollPrefix;
-            string controlInfoText = $"{_player.Localizer("ControlInfo", ScrollUpKey, ScrollDownKey, SelectKey)}";
 
             string displayTitle = ShowPageCount
                 ? $"{Title}:    ({CurrentPage + 1}/{totalPages})"
@@ -304,7 +311,6 @@ namespace CS2ScreenMenuAPI
                 }
             }
 
-
             menuContent.AppendLine();
             menuBackground.AppendLine();
 
@@ -352,35 +358,38 @@ namespace CS2ScreenMenuAPI
                 navigationIndex++;
             }
 
-            if (ShowResolutionOption)
-            {
-                bool isSelected = (MenuType == MenuType.Scrollable || MenuType == MenuType.Both) &&
-                                 _currentSelectionIndex == navigationIndex;
-
-                menuBackground.AppendLine();
-                menuContent.AppendLine();
-
-                string resText = isSelected ?
-                    $"{prefix} 0. {_player.Localizer("ChangeRes")}" :
-                    $"0. {_player.Localizer("ChangeRes")}";
-
-                menuContent.AppendLine("  " + resText);
-                menuBackground.AppendLine();
-            }
-
-            if (MenuType != MenuType.KeyPress)
+            if (hasControlsInfo)
             {
                 menuContent.AppendLine();
-                menuBackground.AppendLine();
-
-                menuBackground.AppendLine(controlInfoText);
                 menuContent.AppendLine();
+                menuBackground.AppendLine(_player.Localizer("ScrollKeys", ScrollUpKey, ScrollDownKey));
+                menuBackground.AppendLine(_player.Localizer("SelectKey", SelectKey));
             }
 
-            for (int i = 0; i < maxTextLength + 1; i++)
+            for (int i = 0; i < maxTextLength; i++)
             {
                 menuBackground.Append('ᅠ');
             }
+        }
+        private void TransitionToPrevMenu()
+        {
+            if (PrevMenu == null) return;
+
+            PlayPrevSound();
+
+            Menu prevMenu = PrevMenu;
+
+            MenuAPI.SetActiveMenu(_player, null);
+
+            Server.NextFrame(() => {
+                MenuAPI.SetActiveMenu(_player, prevMenu);
+                prevMenu._isClosed = false;
+                prevMenu.RegisterKeyCommands();
+                prevMenu.Display();
+
+                _isClosed = true;
+                ClearDisplay();
+            });
         }
 
         public void OnKeyPress(CCSPlayerController player, int key)
@@ -395,7 +404,7 @@ namespace CS2ScreenMenuAPI
                         if (ShowResolutionOption)
                         {
                             Menu currentMenu = this;
-                            Menu? parentMenu = ParentMenu;
+                            Menu? prevMenu = PrevMenu;
                             bool isSubMenu = IsSubMenu;
 
                             MenuAPI.SetActiveMenu(_player, null);
@@ -404,12 +413,12 @@ namespace CS2ScreenMenuAPI
 
                             CreateResolutionMenu(player, _plugin, () =>
                             {
-                                if (isSubMenu && parentMenu != null)
+                                if (isSubMenu && prevMenu != null)
                                 {
-                                    parentMenu._isClosed = false;
-                                    MenuAPI.SetActiveMenu(_player, parentMenu);
-                                    parentMenu.RegisterKeyCommands();
-                                    parentMenu.Display();
+                                    prevMenu._isClosed = false;
+                                    MenuAPI.SetActiveMenu(_player, prevMenu);
+                                    prevMenu.RegisterKeyCommands();
+                                    prevMenu.Display();
                                 }
                                 else
                                 {
@@ -422,14 +431,9 @@ namespace CS2ScreenMenuAPI
                         }
                         break;
                     case 7:
-                        if (IsSubMenu && CurrentPage == 0 && ParentMenu != null)
+                        if (IsSubMenu && CurrentPage == 0 && PrevMenu != null)
                         {
-                            var parent = ParentMenu;
-                            MenuAPI.SetActiveMenu(_player, parent);
-                            PlayPrevSound();
-                            parent._isClosed = false;
-                            parent.RegisterKeyCommands();
-                            parent.Display();
+                            TransitionToPrevMenu();
                         }
                         else
                         {
@@ -458,6 +462,7 @@ namespace CS2ScreenMenuAPI
                 }
             }
         }
+
         private void SelectCurrentOption()
         {
             int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
@@ -484,11 +489,19 @@ namespace CS2ScreenMenuAPI
                             if (subMenu != null)
                             {
                                 PlaySelectSound();
-                                subMenu.ParentMenu = this;
+
+                                subMenu.PrevMenu = this;
                                 subMenu.IsSubMenu = true;
-                                subMenu.MenuPositionX = this.MenuPositionX;
-                                subMenu.Display();
-                                MenuAPI.SetActiveMenu(_player, subMenu);
+
+                                MenuAPI.SetActiveMenu(_player, null);
+
+                                Server.NextFrame(() => {
+                                    PlaySelectSound();
+                                    MenuAPI.SetActiveMenu(_player, subMenu);
+                                    subMenu._isClosed = false;
+                                    subMenu.RegisterKeyCommands();
+                                    subMenu.Display();
+                                });
                             }
                             else
                             {
@@ -524,19 +537,14 @@ namespace CS2ScreenMenuAPI
                 int navIndex = _currentSelectionIndex - enabledOptionsCount;
                 int navCount = 0;
 
-                bool showBackButton = CurrentPage > 0 || (IsSubMenu && ParentMenu != null);
+                bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
                 bool showNextButton = CurrentPage < GetMaxPage();
 
                 if (showBackButton && navCount == navIndex)
                 {
-                    if (IsSubMenu && CurrentPage == 0 && ParentMenu != null)
+                    if (IsSubMenu && CurrentPage == 0 && PrevMenu != null)
                     {
-                        var parent = ParentMenu;
-                        MenuAPI.SetActiveMenu(_player, parent);
-                        PlayPrevSound();
-                        parent._isClosed = false;
-                        parent.RegisterKeyCommands();
-                        parent.Display();
+                        TransitionToPrevMenu();
                     }
                     else
                     {
@@ -564,7 +572,7 @@ namespace CS2ScreenMenuAPI
                 if (ShowResolutionOption && navCount == navIndex)
                 {
                     Menu currentMenu = this;
-                    Menu? parentMenu = ParentMenu;
+                    Menu? prevMenu = PrevMenu;
                     bool isSubMenu = IsSubMenu;
 
                     MenuAPI.SetActiveMenu(_player, null);
@@ -573,12 +581,12 @@ namespace CS2ScreenMenuAPI
 
                     CreateResolutionMenu(_player, _plugin, () =>
                     {
-                        if (isSubMenu && parentMenu != null)
+                        if (isSubMenu && prevMenu != null)
                         {
-                            parentMenu._isClosed = false;
-                            MenuAPI.SetActiveMenu(_player, parentMenu);
-                            parentMenu.RegisterKeyCommands();
-                            parentMenu.Display();
+                            prevMenu._isClosed = false;
+                            MenuAPI.SetActiveMenu(_player, prevMenu);
+                            prevMenu.RegisterKeyCommands();
+                            prevMenu.Display();
                         }
                         else
                         {
@@ -591,6 +599,7 @@ namespace CS2ScreenMenuAPI
                 }
             }
         }
+
         private void HandleOptionSelection(CCSPlayerController player, int key)
         {
             int startIndex = CurrentPage * ItemsPerPage;
@@ -622,11 +631,19 @@ namespace CS2ScreenMenuAPI
                 if (subMenu != null)
                 {
                     PlaySelectSound();
-                    subMenu.ParentMenu = this;
+
+                    subMenu.PrevMenu = this;
                     subMenu.IsSubMenu = true;
-                    subMenu.MenuPositionX = this.MenuPositionX;
-                    subMenu.Display();
-                    MenuAPI.SetActiveMenu(_player, subMenu);
+
+                    MenuAPI.SetActiveMenu(_player, null);
+
+                    Server.NextFrame(() => {
+                        PlaySelectSound();
+                        MenuAPI.SetActiveMenu(_player, subMenu);
+                        subMenu._isClosed = false;
+                        subMenu.RegisterKeyCommands();
+                        subMenu.Display();
+                    });
                 }
                 else
                 {
@@ -653,59 +670,12 @@ namespace CS2ScreenMenuAPI
             }
         }
 
-        private void ScrollUp()
-        {
-            int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
-            int totalSelectableItems = enabledOptionsCount + GetNavigationButtonCount();
-
-            if (_currentSelectionIndex == 0)
-            {
-                _currentSelectionIndex = totalSelectableItems - 1;
-
-                UpdateMenuContent();
-                return;
-            }
-
-            _currentSelectionIndex--;
-
-            if (_currentSelectionIndex < enabledOptionsCount)
-            {
-                int startIndex = CurrentPage * ItemsPerPage;
-                int targetEnabledIndex = _currentSelectionIndex;
-                int currentEnabledIndex = 0;
-                bool foundEnabled = false;
-
-                for (int i = startIndex; i < Math.Min(Options.Count, startIndex + ItemsPerPage); i++)
-                {
-                    if (!Options[i].IsDisabled)
-                    {
-                        if (currentEnabledIndex == targetEnabledIndex)
-                        {
-                            foundEnabled = true;
-                            break;
-                        }
-                        currentEnabledIndex++;
-                    }
-                }
-
-                if (!foundEnabled && CurrentPage > 0)
-                {
-                    PrevPage();
-                    int newEnabledCount = GetEnabledOptionsCountOnCurrentPage();
-                    _currentSelectionIndex = newEnabledCount - 1;
-                    return;
-                }
-            }
-
-            UpdateMenuContent();
-        }
-
         private void ScrollDown()
         {
             int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
             int totalSelectableItems = enabledOptionsCount + GetNavigationButtonCount();
 
-            if (_currentSelectionIndex == totalSelectableItems - 1)
+            if (_currentSelectionIndex >= totalSelectableItems - 1)
             {
                 _currentSelectionIndex = 0;
 
@@ -764,6 +734,54 @@ namespace CS2ScreenMenuAPI
 
             UpdateMenuContent();
         }
+
+        private void ScrollUp()
+        {
+            int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
+            int totalSelectableItems = enabledOptionsCount + GetNavigationButtonCount();
+
+            if (_currentSelectionIndex == 0)
+            {
+                _currentSelectionIndex = totalSelectableItems - 1;
+
+                UpdateMenuContent();
+                return;
+            }
+
+            _currentSelectionIndex--;
+
+            if (_currentSelectionIndex < enabledOptionsCount)
+            {
+                int startIndex = CurrentPage * ItemsPerPage;
+                int targetEnabledIndex = _currentSelectionIndex;
+                int currentEnabledIndex = 0;
+                bool foundEnabled = false;
+
+                for (int i = startIndex; i < Math.Min(Options.Count, startIndex + ItemsPerPage); i++)
+                {
+                    if (!Options[i].IsDisabled)
+                    {
+                        if (currentEnabledIndex == targetEnabledIndex)
+                        {
+                            foundEnabled = true;
+                            break;
+                        }
+                        currentEnabledIndex++;
+                    }
+                }
+
+                if (!foundEnabled && CurrentPage > 0)
+                {
+                    PrevPage();
+                    int newEnabledCount = GetEnabledOptionsCountOnCurrentPage();
+                    _currentSelectionIndex = newEnabledCount - 1;
+                    return;
+                }
+            }
+
+            UpdateMenuContent();
+        }
+
         public void NextPage()
         {
             int maxPage = GetMaxPage();
@@ -840,6 +858,7 @@ namespace CS2ScreenMenuAPI
                 player.Unfreeze();
             }
         }
+
         public void Dispose() => Close(_player);
 
         private void UnregisterKeyCommands()
@@ -927,7 +946,7 @@ namespace CS2ScreenMenuAPI
                 Server.NextFrame(() => {
                     ClearDisplay();
                     _player.CreateFakeWorldText(this);
-                    Server.NextFrame(() => CreateDisplay());
+                    Server.NextFrame(() => CreateDisplay(_player));
                 });
 
                 return;
@@ -982,7 +1001,7 @@ namespace CS2ScreenMenuAPI
                 {
                     ClearDisplay();
                     _player.CreateFakeWorldText(this);
-                    Server.NextFrame(() => CreateDisplay());
+                    Server.NextFrame(() => CreateDisplay(_player));
                 }
                 else
                 {
@@ -994,7 +1013,7 @@ namespace CS2ScreenMenuAPI
                     {
                         ClearDisplay();
                         _player.CreateFakeWorldText(this);
-                        Server.NextFrame(() => CreateDisplay());
+                        Server.NextFrame(() => CreateDisplay(_player));
                     }
                 }
             });
@@ -1017,7 +1036,7 @@ namespace CS2ScreenMenuAPI
                 {
                     ClearDisplay();
                     _player.CreateFakeWorldText(this);
-                    Server.NextFrame(() => CreateDisplay());
+                    Server.NextFrame(() => CreateDisplay(_player));
                 }
                 else
                 {
@@ -1029,13 +1048,14 @@ namespace CS2ScreenMenuAPI
                     {
                         ClearDisplay();
                         _player.CreateFakeWorldText(this);
-                        Server.NextFrame(() => CreateDisplay());
+                        Server.NextFrame(() => CreateDisplay(_player));
                     }
                 }
             });
 
             return HookResult.Continue;
         }
+
         private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
         {
             CCSPlayerController? player = @event.Userid;
@@ -1046,6 +1066,7 @@ namespace CS2ScreenMenuAPI
             }
             return HookResult.Continue;
         }
+
         private void RegisterEvents()
         {
             _plugin.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
@@ -1056,6 +1077,7 @@ namespace CS2ScreenMenuAPI
             _plugin.RegisterListener<OnTick>(OnTick);
             _plugin.RegisterListener<CheckTransmit>(OnCheckTransmit);
         }
+
         private void ConfigureSettings()
         {
             TitleColor = Color.FromArgb(231, 210, 177);
@@ -1067,7 +1089,8 @@ namespace CS2ScreenMenuAPI
             HasExitButon = _config.Settings.HasExitOption;
             ShowResolutionOption = _config.Settings.ShowResolutionOption;
             ShowPageCount = _config.Settings.ShowPageCount;
-            ShowDisabledOptionNum = _config.Settings.ShowDisabledOptionNum;;
+            ShowDisabledOptionNum = _config.Settings.ShowDisabledOptionNum; ;
+            ShowControlsInfo = _config.Settings.ShowControlsInfo;
 
             switch (_config.Settings.MenuType)
             {
@@ -1085,15 +1108,15 @@ namespace CS2ScreenMenuAPI
                     break;
             }
 
-            if (MenuType == MenuType.Scrollable || MenuType == MenuType.Both)
+            if (MenuType != MenuType.KeyPress)
             {
                 ScrollUpKey = _config.Controls.ScrollUp;
                 ScrollDownKey = _config.Controls.ScrollDown;
                 SelectKey = _config.Controls.Select;
-
                 _currentSelectionIndex = 0;
             }
         }
+
         private int GetEnabledOptionsCountOnCurrentPage()
         {
             int startIndex = CurrentPage * ItemsPerPage;
@@ -1108,6 +1131,7 @@ namespace CS2ScreenMenuAPI
 
             return count;
         }
+
         private void PlaySelectSound()
         {
             if (!string.IsNullOrEmpty(_config.Sounds.Select))
@@ -1116,6 +1140,7 @@ namespace CS2ScreenMenuAPI
                 _player.EmitSound(_config.Sounds.Select, filter, _config.Sounds.Volume);
             }
         }
+
         private int FindFirstEnabledOptionIndex()
         {
             int startIndex = CurrentPage * ItemsPerPage;
@@ -1133,15 +1158,17 @@ namespace CS2ScreenMenuAPI
 
             return -1;
         }
+
         private int GetMaxPage()
         {
             return (int)Math.Ceiling(Options.Count / (double)ItemsPerPage) - 1;
         }
+
         private int GetNavigationButtonCount()
         {
             int count = 0;
 
-            bool showBackButton = CurrentPage > 0 || (IsSubMenu && ParentMenu != null);
+            bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
             bool showNextButton = CurrentPage < GetMaxPage();
 
             if (showBackButton) count++;
@@ -1151,6 +1178,7 @@ namespace CS2ScreenMenuAPI
 
             return count;
         }
+
         private void PlayCloseSound()
         {
             if (!string.IsNullOrEmpty(_config.Sounds.Close))
@@ -1177,6 +1205,5 @@ namespace CS2ScreenMenuAPI
                 _player.EmitSound(_config.Sounds.Prev, filter, _config.Sounds.Volume);
             }
         }
-
     }
 }

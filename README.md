@@ -113,9 +113,7 @@ namespace Example
         {
 
         }
-
-        [ConsoleCommand("css_testmenu")]
-        public void OnTestMenu(CCSPlayerController player, CommandInfo info)
+        public Menu TestMenu(CCSPlayerController player)
         {
             if (player == null)
                 return;
@@ -133,7 +131,7 @@ namespace Example
                 voteCount++;
                 p.PrintToChat($"Vote registered! Total votes: {voteCount}");
                 
-                // Refresh the menu to show updated vote count
+                option.Text = $"Vote Option ({voteCount})";
                 menu.Refresh();
             });
 
@@ -149,24 +147,23 @@ namespace Example
                 p.PrintToChat("This is another enabled option!");
             });
 
-            menu.AddItem("SubMenu", (p, option) =>
-            {
-                var subMenu = new CS2ScreenMenuAPI.Menu(p, this) // creating SubMenu
-                {
-                    Title = "SubMenu Title",
-                    IsSubMenu = true, // this is a sub menu
-                    ParentMenu = menu // always parent the sub menu to its main menu
-                };
-                
-                subMenu.AddItem("SubOption 1", (subPlayer, subOption) =>
-                {
-                    subPlayer.PrintToChat("SubOption 1!");
-                });
-               
-                subMenu.Display(); // Simply display the submenu
-            });
-
             menu.Display(); // Display the main menu
+            return menu
+        }
+        private void CreateSubMenu(CCSPlayerController player, Menu prevMenu)
+        {
+            Menu subMenu = new (player, this)
+            {
+                IsSubMenu = true,
+                PrevMenu = TestMenu // when you hit 7. Back it will send you to the TestMenu
+            };
+
+            subMenu.AddItem("SubOption 1", (p, o) =>
+            {
+                p.PrintToChat("SubOption 1!");
+            });
+               
+            subMenu.Display();
         }
     }
 }

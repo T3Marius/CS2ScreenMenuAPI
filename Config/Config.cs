@@ -25,6 +25,7 @@ namespace CS2ScreenMenuAPI
         public bool ShowPageCount { get; set; } = true;
         public bool ShowDisabledOptionNum { get; set; } = true;
         public bool FreezePlayer { get; set; } = true;
+        public bool ShowControlsInfo { get; set; } = true;
         public string ScrollPrefix { get; set; } = ">";
         public Dictionary<string, Resolution> Resolutions { get; set; } = [];
     }
@@ -40,12 +41,14 @@ namespace CS2ScreenMenuAPI
         public string Next { get; set; } = "menu.Select";
         public string Prev { get; set; } = "menu.Close";
         public string Close { get; set; } = "menu.Close";
+        public string ScrollUp { get; set; } = "menu.ScrollUp";
+        public string ScrollDown { get; set; } = "menu.ScrollDown";
         public float Volume { get; set; } = 1.0f;
     }
     public static class ConfigLoader
     {
         private static readonly string ConfigPath;
-        private static Config? _cachedConfig = null;
+        private static DateTime _lastLoadTime = DateTime.MinValue;
 
         static ConfigLoader()
         {
@@ -64,18 +67,13 @@ namespace CS2ScreenMenuAPI
 
         public static Config Load()
         {
-            // Return cached config if available to prevent recursive loading
-            if (_cachedConfig != null)
-                return _cachedConfig;
-
             if (!File.Exists(ConfigPath))
             {
                 CreateDefaultConfig();
             }
-
-            _cachedConfig = LoadConfigFromFile();
-            return _cachedConfig;
+            return LoadConfigFromFile();
         }
+
         private static Config LoadConfigFromFile()
         {
             string configText = File.ReadAllText(ConfigPath);
@@ -121,6 +119,7 @@ namespace CS2ScreenMenuAPI
                 ShowDisabledOptionNum = bool.Parse(settingsTable["ShowDisabledOptionNum"].ToString()!),
                 ShowPageCount = bool.Parse(settingsTable["ShowPageCount"].ToString()!),
                 FreezePlayer = bool.Parse(settingsTable["FreezePlayer"].ToString()!),
+                ShowControlsInfo = bool.Parse(settingsTable["ShowControlsInfo"].ToString()!),
                 ScrollPrefix = settingsTable["ScrollPrefix"].ToString()!,
             };
 
@@ -159,6 +158,8 @@ namespace CS2ScreenMenuAPI
                 Next = soundsTable["Next"].ToString()!,
                 Prev = soundsTable["Prev"].ToString()!,
                 Close = soundsTable["Close"].ToString()!,
+                ScrollUp = soundsTable["ScrollUp"].ToString()!,
+                ScrollDown = soundsTable["ScrollDown"].ToString()!,
                 Volume = float.Parse(soundsTable["Volume"].ToString()!)
             };
             return sounds;
@@ -180,6 +181,7 @@ ShowResolutionOption = true
 ShowDisabledOptionNum = true
 ShowPageCount = true
 FreezePlayer = true
+ShowControlsInfo = true
 ScrollPrefix = ""\u2023""
 
 [Settings.Resolutions.""1920x1080""]
@@ -200,13 +202,16 @@ Select = ""menu.Select""
 Next = ""menu.Select""
 Prev = ""menu.Close""
 Close = ""menu.Close""
+ScrollUp = ""menu.ScrollUp""
+ScrollDown = ""menu.ScrollDown""
 Volume = 1.0
 
 [Lang.en]
 Prev = ""Back""
 Next = ""Next""
 Close = ""Close""
-ControlInfo =""[{0}/{1}] Scroll\n[{2}] Select""
+ScrollKeys = ""[{0}/{1}] Scroll""
+SelectKey = ""[{0}] Select""
 SelectRes = ""Select Your Game Resolution""
 ChangeRes = ""Change Resolution""
 
