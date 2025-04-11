@@ -239,7 +239,6 @@ namespace CS2ScreenMenuAPI
                 Utilities.SetStateChanged(_menuBackgroundText, "CPointWorldText", "m_messageText");
             }
         }
-
         private void BuildMenuText(StringBuilder menuContent, StringBuilder menuBackground)
         {
             int totalPages = (int)Math.Ceiling(Options.Count / (double)ItemsPerPage);
@@ -286,17 +285,18 @@ namespace CS2ScreenMenuAPI
                         optionText = $"{visibleOptionNumber}. {option.Text}";
 
                     enabledOptionCounter++;
+                    visibleOptionNumber++;
                 }
                 else if (ShowDisabledOptionNum)
                 {
                     optionText = $"{visibleOptionNumber}. {option.Text}";
+                    visibleOptionNumber++;
                 }
                 else
                 {
                     optionText = option.Text;
                 }
 
-                visibleOptionNumber++;
                 maxTextLength = Math.Max(maxTextLength + 1, optionText.Length);
 
                 if (option.IsDisabled)
@@ -604,39 +604,39 @@ namespace CS2ScreenMenuAPI
         {
             int startIndex = CurrentPage * ItemsPerPage;
             int endIndex = Math.Min(Options.Count, startIndex + ItemsPerPage);
-
             Dictionary<int, int> displayedNumberToOptionIndex = new Dictionary<int, int>();
+
             int displayedNumber = 1;
+
             for (int i = startIndex; i < endIndex; i++)
             {
                 var option = Options[i];
+
                 if (!option.IsDisabled)
                 {
-                    displayedNumberToOptionIndex[displayedNumber] = i;
+                    displayedNumberToOptionIndex[displayedNumber++] = i;
                 }
-                displayedNumber++;
+                else if (ShowDisabledOptionNum)
+                {
+                    displayedNumber++;
+                }
             }
 
             if (displayedNumberToOptionIndex.ContainsKey(key))
             {
                 int optionIndex = displayedNumberToOptionIndex[key];
                 var option = Options[optionIndex];
-
                 Menu? subMenu = null;
                 if (option is MenuOption menuOption)
                 {
                     subMenu = menuOption.SubMenu;
                 }
-
                 if (subMenu != null)
                 {
                     PlaySelectSound();
-
                     subMenu.PrevMenu = this;
                     subMenu.IsSubMenu = true;
-
                     MenuAPI.SetActiveMenu(_player, null);
-
                     Server.NextFrame(() => {
                         PlaySelectSound();
                         MenuAPI.SetActiveMenu(_player, subMenu);
@@ -648,10 +648,8 @@ namespace CS2ScreenMenuAPI
                 else
                 {
                     option.Callback(player, option);
-
                     if (_isResolutionMenuShown)
                         return;
-
                     switch (PostSelect)
                     {
                         case PostSelect.Close:
@@ -995,7 +993,7 @@ namespace CS2ScreenMenuAPI
             {
                 _player.Freeze();
             }
-
+            
             Server.NextFrame(() => {
                 if (_menuText == null || !_menuText.IsValid || _menuBackgroundText == null || !_menuBackgroundText.IsValid)
                 {
@@ -1066,7 +1064,7 @@ namespace CS2ScreenMenuAPI
             }
             return HookResult.Continue;
         }
-
+        
         private void RegisterEvents()
         {
             _plugin.RegisterEventHandler<EventPlayerDisconnect>(OnPlayerDisconnect);
