@@ -1,5 +1,6 @@
 ﻿# Config
 ```toml
+
 # Screen Menu Configuration
 
 [Settings]
@@ -10,45 +11,18 @@ PositionX = 0
 PositionY = 0
 HasExitOption = true
 ShowResolutionOption = true
-ShowDisabledOptionNum = true
+ShowDisabledOptionNum = false
 ShowPageCount = true
 FreezePlayer = true
+ShowControlsInfo = false
 ScrollPrefix = "\u2023"
 
 [Settings.Resolutions."1920x1080"]
 PositionX = -9.0
 PositionY = 0.0
 
-[Settings.Resolutions."1680x1050"]
-PositionX = -8.2
-PositionY = 0.0
-
-[Settings.Resolutions."1600x900"]
-PositionX = -9.0
-PositionY = 0.0
-
 [Settings.Resolutions."1440x1080"]
 PositionX = -7.0
-PositionY = 0.0
-
-[Settings.Resolutions."1280x1080"]
-PositionX = -6.0
-PositionY = 0.0
-
-[Settings.Resolutions."1280x720"]
-PositionX = -9.0
-PositionY = 0.0
-
-[Settings.Resolutions."1280x1024"]
-PositionX = -6.3
-PositionY = 0.0
-
-[Settings.Resolutions."1024x768"]
-PositionX = -6.8
-PositionY = 0.0
-
-[Settings.Resolutions."800x600"]
-PositionX = -7
 PositionY = 0.0
 
 [Controls]
@@ -61,15 +35,19 @@ Select = "menu.Select"
 Next = "menu.Select"
 Prev = "menu.Close"
 Close = "menu.Close"
+ScrollUp = "menu.ScrollUp"
+ScrollDown = "menu.ScrollDown"
 Volume = 1.0
 
 [Lang.en]
 Prev = "Back"
 Next = "Next"
 Close = "Close"
-ControlInfo ="[{0}/{1}] Scroll\n[{2}] Select"
+ScrollKeys ="[{0}/{1}] Scroll"
+SelectKey = "[{0}] Select"
 SelectRes = "Select Your Game Resolution"
 ChangeRes = "Change Resolution"
+
 ```
 
 NOTE: The config file creates automaticly when using a menu for the first time ex: !testmenu. It directly updates too so if you change the buttons and info and use !testmenu again it will be changed.
@@ -155,7 +133,7 @@ namespace Example
             Menu subMenu = new (player, this)
             {
                 IsSubMenu = true,
-                PrevMenu = TestMenu // when you hit 7. Back it will send you to the TestMenu
+                PrevMenu = TestMenu(player) // when you hit 7. Back it will send you to the TestMenu
             };
 
             subMenu.AddItem("SubOption 1", (p, o) =>
