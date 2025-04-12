@@ -207,7 +207,8 @@ ScrollDown = ""menu.ScrollDown""
 Volume = 1.0
 
 [Lang.en]
-Prev = ""Back""
+Back = ""Back""
+Prev = ""Previous""
 Next = ""Next""
 Close = ""Close""
 ScrollKeys = ""[{0}/{1}] Scroll""
