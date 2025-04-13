@@ -6,9 +6,8 @@
 		<Nullable>enable</Nullable>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
-		<OutputPath>bin\Release\addons\counterstrikesharp\shared\CS2ScreenMenuAPI\</OutputPath>
+		<OutputPath>bin\$(Configuration)\addons\counterstrikesharp\shared\CS2ScreenMenuAPI\</OutputPath>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-		<Configuration>Release</Configuration>
 		<DebugType>none</DebugType>
 	</PropertyGroup>
 

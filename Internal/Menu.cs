@@ -38,7 +38,7 @@ namespace CS2ScreenMenuAPI
         public List<IMenuOption> Options { get; } = new();
         public int CurrentPage { get; private set; }
         public bool ShowResolutionOption { get; set; }
-        public int ItemsPerPage { get; } = 6;
+        public int ItemsPerPage { get; set; } = 6;
         public Color TitleColor { get; set; }
         public Color BackgroundColor { get; set; }
         public string FontName { get; set; } = string.Empty;
@@ -241,6 +241,32 @@ namespace CS2ScreenMenuAPI
         }
         private void BuildMenuText(StringBuilder menuContent, StringBuilder menuBackground)
         {
+            bool firstLine = true;
+            int currentBackgroundLen = 0;
+            int longestLine = 0;
+            void appendLine(string text = "", bool background = false)
+            {
+                if (!firstLine)
+                {
+                    menuContent.AppendLine();
+                    menuBackground.AppendLine();
+                    currentBackgroundLen = 0;
+                }
+                firstLine = false;
+
+                longestLine = Math.Max(longestLine, text.Length);
+
+                if (background)
+                {
+                    menuBackground.Append(text);
+                    currentBackgroundLen += text.Length;
+                }
+                else
+                {
+                    menuContent.Append("  " + text);
+                }
+            }
+
             int totalPages = (int)Math.Ceiling(Options.Count / (double)ItemsPerPage);
             bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
             bool showNextButton = CurrentPage < totalPages - 1;
@@ -251,13 +277,10 @@ namespace CS2ScreenMenuAPI
                 ? $"{Title}:    ({CurrentPage + 1}/{totalPages})"
                 : Title + ":";
 
-            menuContent.AppendLine();
-            menuBackground.AppendLine(displayTitle);
+            appendLine(displayTitle, background: true);
 
             int startIndex = CurrentPage * ItemsPerPage;
             int endIndex = Math.Min(Options.Count, startIndex + ItemsPerPage);
-
-            int maxTextLength = displayTitle.Length;
 
             int enabledOptionCount = 0;
             for (int i = startIndex; i < endIndex; i++)
@@ -297,51 +320,65 @@ namespace CS2ScreenMenuAPI
                     optionText = option.Text;
                 }
 
-                maxTextLength = Math.Max(maxTextLength + 1, optionText.Length);
-
-                if (option.IsDisabled)
-                {
-                    menuContent.AppendLine();
-                    menuBackground.AppendLine(optionText);
-                }
-                else
-                {
-                    menuContent.AppendLine("  " + optionText);
-                    menuBackground.AppendLine();
-                }
+                appendLine(optionText, background: option.IsDisabled);
             }
 
-            menuContent.AppendLine();
-            menuBackground.AppendLine();
+            bool hasNavigation = showNextButton || showBackButton || HasExitButon;
+            if (hasNavigation)
+            {
+                int itemsCreated = endIndex - startIndex;
+                int emptyLinesToCreate = (Math.Min(Options.Count, ItemsPerPage) - itemsCreated) + 1;
+                for (int i = 0; i < emptyLinesToCreate; i++)
+                    appendLine();
+            }
 
             int navigationIndex = enabledOptionCounter;
 
-            if (showBackButton)
+            var (prevButton, nextButton, closeButton) = ShowResolutionOption switch
             {
-                bool isSelected = (MenuType == MenuType.Scrollable || MenuType == MenuType.Both) &&
-                                 _currentSelectionIndex == navigationIndex;
+                true => ("7", "8", "9"),
+                false => ("8", "9", "0"),
+            };
 
-                string backText = isSelected ?
-                    $"{prefix} 7. {_player.Localizer("Prev")}" :
-                    $"7. {_player.Localizer("Prev")}";
-
-                menuContent.AppendLine("  " + backText);
-                menuBackground.AppendLine();
-                navigationIndex++;
-            }
-
-            if (showNextButton)
+            if (showBackButton || showNextButton)
             {
-                bool isSelected = (MenuType == MenuType.Scrollable || MenuType == MenuType.Both) &&
-                                 _currentSelectionIndex == navigationIndex;
+                if (showBackButton)
+                {
+                    bool isSelected = (MenuType == MenuType.Scrollable || MenuType == MenuType.Both) &&
+                                     _currentSelectionIndex == navigationIndex;
 
-                string nextText = isSelected ?
-                    $"{prefix} 8. {_player.Localizer("Next")}" :
-                    $"8. {_player.Localizer("Next")}";
+                    var backTranslation = CurrentPage == 0 && IsSubMenu ? "Back" : "Prev";
 
-                menuContent.AppendLine("  " + nextText);
-                menuBackground.AppendLine();
-                navigationIndex++;
+                    string backText = isSelected ?
+                        $"{prefix} {prevButton}. {_player.Localizer(backTranslation)}" :
+                        $"{prevButton}. {_player.Localizer(backTranslation)}";
+
+                    appendLine(backText);
+                    navigationIndex++;
+                }
+                else
+                {
+                    menuContent.AppendLine();
+                    menuBackground.AppendLine();
+                }
+
+                if (showNextButton)
+                {
+                    bool isSelected = (MenuType == MenuType.Scrollable || MenuType == MenuType.Both) &&
+                                     _currentSelectionIndex == navigationIndex;
+
+                    string nextText = isSelected ?
+                        $"{prefix} {nextButton}. {_player.Localizer("Next")}" :
+                        $"{nextButton}. {_player.Localizer("Next")}";
+
+                    appendLine(nextText);
+                    navigationIndex++;
+                }
+                else
+                {
+                    menuContent.AppendLine();
+                    menuBackground.AppendLine();
+                }
             }
 
             if (HasExitButon)
@@ -350,23 +387,20 @@ namespace CS2ScreenMenuAPI
                                  _currentSelectionIndex == navigationIndex;
 
                 string closeText = isSelected ?
-                    $"{prefix} 9. {_player.Localizer("Close")}" :
-                    $"9. {_player.Localizer("Close")}";
+                    $"{prefix} {closeButton}. {_player.Localizer("Close")}" :
+                    $"{closeButton}. {_player.Localizer("Close")}";
 
-                menuContent.AppendLine("  " + closeText);
-                menuBackground.AppendLine();
+                appendLine(closeText, background: true);
                 navigationIndex++;
             }
 
             if (hasControlsInfo)
             {
-                menuContent.AppendLine();
-                menuContent.AppendLine();
-                menuBackground.AppendLine(_player.Localizer("ScrollKeys", ScrollUpKey, ScrollDownKey));
-                menuBackground.AppendLine(_player.Localizer("SelectKey", SelectKey));
+                string controlInfo = $"{_player.Localizer("SelectKey", SelectKey)} {_player.Localizer("ScrollKeys", ScrollUpKey, ScrollDownKey)}";
+                appendLine(controlInfo, background: true);
             }
 
-            for (int i = 0; i < maxTextLength; i++)
+            for (int i = currentBackgroundLen; i < longestLine; i++)
             {
                 menuBackground.Append('ᅠ');
             }
@@ -400,37 +434,35 @@ namespace CS2ScreenMenuAPI
             {
                 switch (key)
                 {
-                    case 0:
-                        if (ShowResolutionOption)
+                    case 0 when ShowResolutionOption:
+                        Menu currentMenu = this;
+                        Menu? prevMenu = PrevMenu;
+                        bool isSubMenu = IsSubMenu;
+
+                        MenuAPI.SetActiveMenu(_player, null);
+                        _isClosed = true;
+                        PlayCloseSound();
+
+                        CreateResolutionMenu(player, _plugin, () =>
                         {
-                            Menu currentMenu = this;
-                            Menu? prevMenu = PrevMenu;
-                            bool isSubMenu = IsSubMenu;
-
-                            MenuAPI.SetActiveMenu(_player, null);
-                            _isClosed = true;
-                            PlayCloseSound();
-
-                            CreateResolutionMenu(player, _plugin, () =>
+                            if (isSubMenu && prevMenu != null)
                             {
-                                if (isSubMenu && prevMenu != null)
-                                {
-                                    prevMenu._isClosed = false;
-                                    MenuAPI.SetActiveMenu(_player, prevMenu);
-                                    prevMenu.RegisterKeyCommands();
-                                    prevMenu.Display();
-                                }
-                                else
-                                {
-                                    currentMenu._isClosed = false;
-                                    MenuAPI.SetActiveMenu(_player, currentMenu);
-                                    currentMenu.RegisterKeyCommands();
-                                    currentMenu.Display();
-                                }
-                            });
-                        }
+                                prevMenu._isClosed = false;
+                                MenuAPI.SetActiveMenu(_player, prevMenu);
+                                prevMenu.RegisterKeyCommands();
+                                prevMenu.Display();
+                            }
+                            else
+                            {
+                                currentMenu._isClosed = false;
+                                MenuAPI.SetActiveMenu(_player, currentMenu);
+                                currentMenu.RegisterKeyCommands();
+                                currentMenu.Display();
+                            }
+                        });
                         break;
-                    case 7:
+                    case 7 when ShowResolutionOption:
+                    case 8 when !ShowResolutionOption:
                         if (IsSubMenu && CurrentPage == 0 && PrevMenu != null)
                         {
                             TransitionToPrevMenu();
@@ -441,11 +473,13 @@ namespace CS2ScreenMenuAPI
                         }
                         break;
 
-                    case 8:
+                    case 8 when ShowResolutionOption:
+                    case 9 when !ShowResolutionOption:
                         NextPage();
                         break;
 
-                    case 9:
+                    case 9 when ShowResolutionOption:
+                    case 0 when !ShowResolutionOption:
                         if (HasExitButon)
                         {
                             Close(player);
@@ -454,7 +488,7 @@ namespace CS2ScreenMenuAPI
                         break;
 
                     default:
-                        if (key >= 1 && key <= 6)
+                        if (key >= 1 && key <= ItemsPerPage)
                         {
                             HandleOptionSelection(player, key);
                         }
@@ -1089,6 +1123,8 @@ namespace CS2ScreenMenuAPI
             ShowPageCount = _config.Settings.ShowPageCount;
             ShowDisabledOptionNum = _config.Settings.ShowDisabledOptionNum; ;
             ShowControlsInfo = _config.Settings.ShowControlsInfo;
+            ItemsPerPage = ShowResolutionOption ? 6 : 7;
+
 
             switch (_config.Settings.MenuType)
             {
@@ -1106,13 +1142,10 @@ namespace CS2ScreenMenuAPI
                     break;
             }
 
-            if (MenuType != MenuType.KeyPress)
-            {
-                ScrollUpKey = _config.Controls.ScrollUp;
-                ScrollDownKey = _config.Controls.ScrollDown;
-                SelectKey = _config.Controls.Select;
-                _currentSelectionIndex = 0;
-            }
+            ScrollUpKey = _config.Controls.ScrollUp;
+            ScrollDownKey = _config.Controls.ScrollDown;
+            SelectKey = _config.Controls.Select;
+            _currentSelectionIndex = 0;
         }
 
         private int GetEnabledOptionsCountOnCurrentPage()
