@@ -244,7 +244,7 @@ namespace CS2ScreenMenuAPI
             int totalPages = (int)Math.Ceiling(Options.Count / (double)ItemsPerPage);
             bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
             bool showNextButton = CurrentPage < totalPages - 1;
-            bool hasControlsInfo = MenuType != MenuType.KeyPress;
+            bool hasControlsInfo = MenuType != MenuType.KeyPress && ShowControlsInfo;
             string prefix = _config.Settings.ScrollPrefix;
 
             string displayTitle = ShowPageCount
