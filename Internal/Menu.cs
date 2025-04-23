@@ -7,6 +7,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using static CS2ScreenMenuAPI.Buttons;
 using static CS2ScreenMenuAPI.PlayerRes;
 using static CounterStrikeSharp.API.Core.Listeners;
+using Microsoft.Extensions.Logging;
 
 namespace CS2ScreenMenuAPI
 {
@@ -59,12 +60,27 @@ namespace CS2ScreenMenuAPI
             _player = player;
             _plugin = plugin;
             _config = ConfigLoader.Load();
+
             ConfigureSettings();
             RegisterEvents();
 
-            if (HasPlayerResolution(player))
+            if (!ResolutionDatabase._initialized)
             {
-                Resolution playerRes = GetPlayerResolution(player);
+                try
+                {
+                    ResolutionDatabase.InitializeAsync(_plugin.Logger, _config.Database)
+                                      .GetAwaiter()
+                                      .GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _plugin.Logger.LogError($"Resolution DB init failed: {ex}");
+                }
+            }
+
+            if (ResolutionDatabase.HasPlayerResolution(player))
+            {
+                Resolution playerRes = ResolutionDatabase.GetPlayerResolution(player);
                 MenuPositionX = playerRes.PositionX;
                 MenuAPI.SetActiveMenu(player, this);
                 RegisterKeyCommands();
@@ -74,10 +90,9 @@ namespace CS2ScreenMenuAPI
             {
                 _isClosed = true;
                 _isResolutionMenuShown = true;
-
                 CreateResolutionMenu(_player, _plugin, () =>
                 {
-                    Resolution playerRes = GetPlayerResolution(_player);
+                    Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player);
                     MenuPositionX = playerRes.PositionX;
                     _isClosed = false;
                     _isResolutionMenuShown = false;
@@ -94,7 +109,6 @@ namespace CS2ScreenMenuAPI
                 Display();
             }
         }
-
         private void RegisterKeyCommands()
         {
             for (int i = 0; i <= 9; i++)
@@ -247,17 +261,21 @@ namespace CS2ScreenMenuAPI
             bool hasControlsInfo = MenuType != MenuType.KeyPress && ShowControlsInfo;
             string prefix = _config.Settings.ScrollPrefix;
 
+            int currentBackgroundLen = 0;
+
+            int actualLongestLine = 0;
+
             string displayTitle = ShowPageCount
                 ? $"{Title}:    ({CurrentPage + 1}/{totalPages})"
                 : Title + ":";
 
             menuContent.AppendLine();
             menuBackground.AppendLine(displayTitle);
+            actualLongestLine = Math.Max(actualLongestLine, displayTitle.Length);
+            currentBackgroundLen = displayTitle.Length;
 
             int startIndex = CurrentPage * ItemsPerPage;
             int endIndex = Math.Min(Options.Count, startIndex + ItemsPerPage);
-
-            int maxTextLength = displayTitle.Length;
 
             int enabledOptionCount = 0;
             for (int i = startIndex; i < endIndex; i++)
@@ -284,6 +302,8 @@ namespace CS2ScreenMenuAPI
                     else
                         optionText = $"{visibleOptionNumber}. {option.Text}";
 
+                    actualLongestLine = Math.Max(actualLongestLine, 2 + optionText.Length);
+
                     enabledOptionCounter++;
                     visibleOptionNumber++;
                 }
@@ -291,28 +311,33 @@ namespace CS2ScreenMenuAPI
                 {
                     optionText = $"{visibleOptionNumber}. {option.Text}";
                     visibleOptionNumber++;
+
+                    actualLongestLine = Math.Max(actualLongestLine, optionText.Length);
                 }
                 else
                 {
                     optionText = option.Text;
-                }
 
-                maxTextLength = Math.Max(maxTextLength + 1, optionText.Length);
+                    actualLongestLine = Math.Max(actualLongestLine, optionText.Length);
+                }
 
                 if (option.IsDisabled)
                 {
                     menuContent.AppendLine();
                     menuBackground.AppendLine(optionText);
+                    currentBackgroundLen = optionText.Length;
                 }
                 else
                 {
                     menuContent.AppendLine("  " + optionText);
                     menuBackground.AppendLine();
+                    currentBackgroundLen = 0;
                 }
             }
 
             menuContent.AppendLine();
             menuBackground.AppendLine();
+            currentBackgroundLen = 0;
 
             int navigationIndex = enabledOptionCounter;
 
@@ -327,6 +352,7 @@ namespace CS2ScreenMenuAPI
 
                 menuContent.AppendLine("  " + backText);
                 menuBackground.AppendLine();
+                actualLongestLine = Math.Max(actualLongestLine, 2 + backText.Length);  // Add 2 for the padding
                 navigationIndex++;
             }
 
@@ -341,6 +367,7 @@ namespace CS2ScreenMenuAPI
 
                 menuContent.AppendLine("  " + nextText);
                 menuBackground.AppendLine();
+                actualLongestLine = Math.Max(actualLongestLine, 2 + nextText.Length);  // Add 2 for the padding
                 navigationIndex++;
             }
 
@@ -355,6 +382,7 @@ namespace CS2ScreenMenuAPI
 
                 menuContent.AppendLine("  " + closeText);
                 menuBackground.AppendLine();
+                actualLongestLine = Math.Max(actualLongestLine, 2 + closeText.Length);  // Add 2 for the padding
                 navigationIndex++;
             }
 
@@ -362,11 +390,18 @@ namespace CS2ScreenMenuAPI
             {
                 menuContent.AppendLine();
                 menuContent.AppendLine();
-                menuBackground.AppendLine(_player.Localizer("ScrollKeys", ScrollUpKey, ScrollDownKey));
-                menuBackground.AppendLine(_player.Localizer("SelectKey", SelectKey));
+                string controlsText = _player.Localizer("ScrollKeys", ScrollUpKey, ScrollDownKey);
+                menuBackground.AppendLine(controlsText);
+                actualLongestLine = Math.Max(actualLongestLine, controlsText.Length);
+                currentBackgroundLen = controlsText.Length;
+
+                string selectKeyText = _player.Localizer("SelectKey", SelectKey);
+                menuBackground.AppendLine(selectKeyText);
+                actualLongestLine = Math.Max(actualLongestLine, selectKeyText.Length);
+                currentBackgroundLen = selectKeyText.Length;
             }
 
-            for (int i = 0; i < maxTextLength; i++)
+            for (int i = currentBackgroundLen; i < actualLongestLine; i++)
             {
                 menuBackground.Append('ᅠ');
             }
@@ -884,6 +919,8 @@ namespace CS2ScreenMenuAPI
                 DisplayManager.PlayerFakeTextCreated.Remove(player.SteamID);
             }
 
+            ResolutionDatabase.HandlePlayerDisconnect(player);
+
             return HookResult.Continue;
         }
 
@@ -1061,6 +1098,7 @@ namespace CS2ScreenMenuAPI
             if (player != null)
             {
                 player.CreateFakeWorldText(this);
+                ResolutionDatabase.HandlePlayerConnect(player);
             }
             return HookResult.Continue;
         }

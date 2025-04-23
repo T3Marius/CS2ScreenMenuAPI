@@ -8,6 +8,7 @@ namespace CS2ScreenMenuAPI
 {
     public class Config
     {
+        public Database_Config Database { get; set; } = new();
         public Menu_Settings Settings { get; set; } = new();
         public Menu_Controls Controls { get; set; } = new();
         public Sounds_Settings Sounds { get; set; } = new();
@@ -28,6 +29,14 @@ namespace CS2ScreenMenuAPI
         public bool ShowControlsInfo { get; set; } = true;
         public string ScrollPrefix { get; set; } = ">";
         public Dictionary<string, Resolution> Resolutions { get; set; } = [];
+    }
+    public class Database_Config
+    {
+        public string Host { get; set; } = "host";
+        public string Name { get; set; } = "name";
+        public string User { get; set; } = "user";
+        public string Password { get; set; } = "pass";
+        public uint Port { get; set; } = 3306;
     }
     public class Menu_Controls
     {
@@ -81,6 +90,7 @@ namespace CS2ScreenMenuAPI
 
             var config = new Config
             {
+                Database = LoadDatabase((TomlTable)model["Database"]),
                 Settings = LoadSettings((TomlTable)model["Settings"]),
                 Controls = LoadControls((TomlTable)model["Controls"]),
                 Sounds = LoadSounds((TomlTable)model["Sounds"]),
@@ -104,6 +114,18 @@ namespace CS2ScreenMenuAPI
             }
 
             return config;
+        }
+        private static Database_Config LoadDatabase(TomlTable databaseTable)
+        {
+            var database = new Database_Config
+            {
+                Host = databaseTable["Host"].ToString()!,
+                Name = databaseTable["Name"].ToString()!,
+                User = databaseTable["User"].ToString()!,
+                Password = databaseTable["Password"].ToString()!,
+                Port = uint.Parse(databaseTable["Port"].ToString()!),
+            };
+            return database;
         }
         private static Menu_Settings LoadSettings(TomlTable settingsTable)
         {
@@ -169,6 +191,13 @@ namespace CS2ScreenMenuAPI
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
             string defaultConfig = @"
 # Screen Menu Configuration
+
+[Database]
+Host = ""host""
+Name = ""name""
+User = ""user""
+Password = ""pass""
+Port = 3306
 
 [Settings]
 FontName = ""Tahoma Bold""

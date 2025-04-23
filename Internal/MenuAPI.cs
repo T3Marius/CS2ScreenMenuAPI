@@ -6,6 +6,10 @@ namespace CS2ScreenMenuAPI
     {
         private static readonly Dictionary<CCSPlayerController, Menu> _activeMenus = new();
 
+        public static void OpenResolutionMenu(CCSPlayerController player, BasePlugin plugin)
+        {
+            PlayerRes.CreateResolutionMenu(player, plugin);
+        }
         public static Menu? GetActiveMenu(CCSPlayerController player)
         {
             _activeMenus.TryGetValue(player, out var menu);

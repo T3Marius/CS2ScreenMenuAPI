@@ -4,17 +4,10 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-		<CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
-		<OutputPath>bin\Release\addons\counterstrikesharp\shared\CS2ScreenMenuAPI\</OutputPath>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<OutputPath>$(ProjectDir)..\CS2ScreenMenuAPI\Release\shared\CS2ScreenMenuAPI\</OutputPath>
 		<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-		<Configuration>Release</Configuration>
-		<DebugType>none</DebugType>
 	</PropertyGroup>
-
-	<ItemGroup>
-	  <None Include="TestPlugin\TestPlugin.csproj" />
-	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="CounterStrikeSharp.API" Version="1.0.314" />
@@ -27,6 +20,9 @@
 		<None Update="Tomlyn.dll">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+		<Content Include="config.toml">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 </Project>

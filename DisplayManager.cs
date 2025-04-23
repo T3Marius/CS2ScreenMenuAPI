@@ -32,7 +32,7 @@ namespace CS2ScreenMenuAPI
             if (playerPawn == null)
                 return null;
 
-            PlayerRes.Resolution resolution = PlayerRes.GetPlayerResolution(player);
+            PlayerRes.Resolution resolution = ResolutionDatabase.GetPlayerResolution(player);
 
             QAngle eyeAngles = playerPawn!.EyeAngles;
             Vector forward = new(), right = new(), up = new();
@@ -141,7 +141,6 @@ namespace CS2ScreenMenuAPI
 
             return entity;
         }
-        // Replace the static boolean with a dictionary to track per-player state
         public static Dictionary<ulong, bool> PlayerFakeTextCreated = new Dictionary<ulong, bool>();
 
         public static void CreateFakeWorldText(this CCSPlayerController player, Menu instance)
