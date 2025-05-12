@@ -255,24 +255,44 @@ namespace CS2ScreenMenuAPI
         }
         private void BuildMenuText(StringBuilder menuContent, StringBuilder menuBackground)
         {
+            bool firstLine = true;
+            int currentBackgroundLen = 0;
+            int longestLine = 0;
+
+            void appendLine(string text = "", bool background = false)
+            {
+                if (!firstLine)
+                {
+                    menuContent.AppendLine();
+                    menuBackground.AppendLine();
+                    currentBackgroundLen = 0;
+                }
+                firstLine = false;
+
+                longestLine = Math.Max(longestLine, text.Length);
+
+                if (background)
+                {
+                    menuBackground.Append(text);
+                    currentBackgroundLen += text.Length;
+                }
+                else
+                {
+                    menuContent.Append("  " + text);
+                }
+            }
+
             int totalPages = (int)Math.Ceiling(Options.Count / (double)ItemsPerPage);
             bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
             bool showNextButton = CurrentPage < totalPages - 1;
             bool hasControlsInfo = MenuType != MenuType.KeyPress && ShowControlsInfo;
             string prefix = _config.Settings.ScrollPrefix;
 
-            int currentBackgroundLen = 0;
-
-            int actualLongestLine = 0;
-
             string displayTitle = ShowPageCount
                 ? $"{Title}:    ({CurrentPage + 1}/{totalPages})"
                 : Title + ":";
 
-            menuContent.AppendLine();
-            menuBackground.AppendLine(displayTitle);
-            actualLongestLine = Math.Max(actualLongestLine, displayTitle.Length);
-            currentBackgroundLen = displayTitle.Length;
+            appendLine(displayTitle, background: true);
 
             int startIndex = CurrentPage * ItemsPerPage;
             int endIndex = Math.Min(Options.Count, startIndex + ItemsPerPage);
@@ -302,8 +322,6 @@ namespace CS2ScreenMenuAPI
                     else
                         optionText = $"{visibleOptionNumber}. {option.Text}";
 
-                    actualLongestLine = Math.Max(actualLongestLine, 2 + optionText.Length);
-
                     enabledOptionCounter++;
                     visibleOptionNumber++;
                 }
@@ -311,33 +329,16 @@ namespace CS2ScreenMenuAPI
                 {
                     optionText = $"{visibleOptionNumber}. {option.Text}";
                     visibleOptionNumber++;
-
-                    actualLongestLine = Math.Max(actualLongestLine, optionText.Length);
                 }
                 else
                 {
                     optionText = option.Text;
-
-                    actualLongestLine = Math.Max(actualLongestLine, optionText.Length);
                 }
 
-                if (option.IsDisabled)
-                {
-                    menuContent.AppendLine();
-                    menuBackground.AppendLine(optionText);
-                    currentBackgroundLen = optionText.Length;
-                }
-                else
-                {
-                    menuContent.AppendLine("  " + optionText);
-                    menuBackground.AppendLine();
-                    currentBackgroundLen = 0;
-                }
+                appendLine(optionText, background: option.IsDisabled);
             }
 
-            menuContent.AppendLine();
-            menuBackground.AppendLine();
-            currentBackgroundLen = 0;
+            appendLine();
 
             int navigationIndex = enabledOptionCounter;
 
@@ -350,9 +351,7 @@ namespace CS2ScreenMenuAPI
                     $"{prefix} 7. {_player.Localizer("Prev")}" :
                     $"7. {_player.Localizer("Prev")}";
 
-                menuContent.AppendLine("  " + backText);
-                menuBackground.AppendLine();
-                actualLongestLine = Math.Max(actualLongestLine, 2 + backText.Length);  // Add 2 for the padding
+                appendLine(backText);
                 navigationIndex++;
             }
 
@@ -365,9 +364,7 @@ namespace CS2ScreenMenuAPI
                     $"{prefix} 8. {_player.Localizer("Next")}" :
                     $"8. {_player.Localizer("Next")}";
 
-                menuContent.AppendLine("  " + nextText);
-                menuBackground.AppendLine();
-                actualLongestLine = Math.Max(actualLongestLine, 2 + nextText.Length);  // Add 2 for the padding
+                appendLine(nextText);
                 navigationIndex++;
             }
 
@@ -380,28 +377,21 @@ namespace CS2ScreenMenuAPI
                     $"{prefix} 9. {_player.Localizer("Close")}" :
                     $"9. {_player.Localizer("Close")}";
 
-                menuContent.AppendLine("  " + closeText);
-                menuBackground.AppendLine();
-                actualLongestLine = Math.Max(actualLongestLine, 2 + closeText.Length);  // Add 2 for the padding
+                appendLine(closeText);
                 navigationIndex++;
             }
 
             if (hasControlsInfo)
             {
-                menuContent.AppendLine();
-                menuContent.AppendLine();
+                appendLine();
                 string controlsText = _player.Localizer("ScrollKeys", ScrollUpKey, ScrollDownKey);
-                menuBackground.AppendLine(controlsText);
-                actualLongestLine = Math.Max(actualLongestLine, controlsText.Length);
-                currentBackgroundLen = controlsText.Length;
+                appendLine(controlsText, background: true);
 
                 string selectKeyText = _player.Localizer("SelectKey", SelectKey);
-                menuBackground.AppendLine(selectKeyText);
-                actualLongestLine = Math.Max(actualLongestLine, selectKeyText.Length);
-                currentBackgroundLen = selectKeyText.Length;
+                appendLine(selectKeyText, background: true);
             }
 
-            for (int i = currentBackgroundLen; i < actualLongestLine; i++)
+            for (int i = currentBackgroundLen; i < longestLine; i++)
             {
                 menuBackground.Append('ᅠ');
             }
@@ -992,10 +982,20 @@ namespace CS2ScreenMenuAPI
                 var observerServices = _player.Pawn.Value?.ObserverServices;
                 if (observerServices != null)
                 {
+                    var observerMode = observerServices.ObserverMode;
                     var currentObserverPawn = observerServices.ObserverTarget?.Value?.As<CCSPlayerPawn>();
                     var currentObserverId = currentObserverPawn?.Handle ?? IntPtr.Zero;
+                    Console.WriteLine($"Observer Mode: {observerMode} (OBS_MODE_ROAMING is 4)");
 
-                    if (currentObserverId != _HudObserverID && currentObserverId != IntPtr.Zero)
+                    bool inFreeMode = observerMode == (int)ObserverMode_t.OBS_MODE_ROAMING;
+
+                    if (inFreeMode)
+                    {
+                        Console.WriteLine("PLAYER IS IN FREE MODE, ADJUSTING POSITION...");
+                        UpdateMenuPositionForFreeMode();
+                        return;
+                    }
+                    else if (currentObserverId != _HudObserverID && currentObserverId != IntPtr.Zero)
                     {
                         _HudObserverID = currentObserverId;
                         Server.NextFrame(() => Display());
@@ -1003,7 +1003,25 @@ namespace CS2ScreenMenuAPI
                 }
             }
         }
+        private void UpdateMenuPositionForFreeMode()
+        {
+            if (_menuText == null || !_menuText.IsValid || _menuBackgroundText == null || !_menuBackgroundText.IsValid)
+                return;
 
+            var vectorData = DisplayManager.FindVectorDataForFreeCamera(_player, MenuPositionX);
+            if (!vectorData.HasValue)
+                return;
+
+            CCSGOViewModel? viewModel = DisplayManager.EnsureCustomView(_player);
+            if (viewModel == null)
+                return;
+
+            _menuText.Teleport(vectorData.Value.Position, vectorData.Value.Angle, null);
+            _menuBackgroundText.Teleport(vectorData.Value.Position, vectorData.Value.Angle, null);
+
+            _menuText.AcceptInput("SetParent", viewModel, null, "!activator");
+            _menuBackgroundText.AcceptInput("SetParent", viewModel, null, "!activator");
+        }
         private void OnCheckTransmit(CCheckTransmitInfoList infoList)
         {
             if (_menuText == null && _menuBackgroundText == null) return;
