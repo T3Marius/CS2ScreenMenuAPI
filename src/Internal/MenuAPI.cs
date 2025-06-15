@@ -1,4 +1,5 @@
-﻿using CounterStrikeSharp.API.Core;
+﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Core;
 
 namespace CS2ScreenMenuAPI
 {
@@ -23,7 +24,11 @@ namespace CS2ScreenMenuAPI
         {
             foreach (var menu in _activeMenus.Values)
             {
-                menu.Dispose();
+                foreach (var p in Utilities.GetPlayers())
+                {
+                    GetActiveMenu(p)?.Close(p);
+                }
+
             }
             _activeMenus.Clear();
         }
@@ -33,7 +38,7 @@ namespace CS2ScreenMenuAPI
             {
                 if (_activeMenus.ContainsKey(player))
                 {
-                    _activeMenus[player].Dispose();
+                    _activeMenus[player].Close(player);
                     _activeMenus.Remove(player);
                 }
             }
@@ -41,7 +46,7 @@ namespace CS2ScreenMenuAPI
             {
                 if (_activeMenus.TryGetValue(player, out var activeMenu))
                 {
-                    activeMenu.Dispose();
+                    activeMenu.Close(player);
                 }
                 _activeMenus[player] = menu;
             }
