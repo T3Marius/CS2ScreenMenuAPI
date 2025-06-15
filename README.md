@@ -69,82 +69,167 @@ ANOTHER NOTE: When using the API in a plugin you don't need to do anything other
 ```
 # MenuExample
 ```c#
-using System.Drawing;
-using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Commands;
-using CS2ScreenMenuAPI;
-using static CS2ScreenMenuAPI.MenuType;
-using static CS2ScreenMenuAPI.PostSelect;
-
-namespace Example
-{
-    public class ExampleMenu : BasePlugin
+ public void Command_Test(CCSPlayerController? player, CommandInfo info)
     {
-        public override string ModuleAuthor => "T3Marius";
-        public override string ModuleName => "TestScrenMenu";
-        public override string ModuleVersion => "1.0";
+        if (player == null)
+            return;
 
-        private int voteCount = 0;
-
-        public override void Load(bool hotReload)
+        var mainMenu = new Menu(player, this) // this the main menu
         {
+            Title = "Weapons Menu",
+            ShowDisabledOptionNum = true,
+        };
 
-        }
-        public Menu TestMenu(CCSPlayerController player)
+        mainMenu.AddItem("Select Pistol", (p, option) => {
+            CreatePistolMenu(p, mainMenu); // Create the pistol menu with it's parent.
+        });
+
+        mainMenu.AddItem("Select Rifle", (p, option) => {
+            CreateRifleMenu(p, mainMenu);
+        });
+
+        mainMenu.AddItem("Select SMG", (p, option) => {
+            CreateSMGMenu(p, mainMenu);
+        });
+
+        mainMenu.AddItem("Select Heavy", (p, option) => {
+            CreateHeavyMenu(p, mainMenu);
+        });
+
+        mainMenu.AddItem("Refresh Test", (p, o) =>
         {
-            if (player == null)
-                return;
+            CreateVoteMenu(p, mainMenu);
+        });
 
-            var menu = new CS2ScreenMenuAPI.Menu(player, this) // Creating the menu
-            {
-                Title = "TestMenu",
-                ShowDisabledOptionNum = false,
-                HasExitButon = true
-                PostSelect = PostSelect.Nothing
-            };
-
-            menu.AddItem($"Vote Option ({voteCount})", (p, option) =>
-            {
-                voteCount++;
-                p.PrintToChat($"Vote registered! Total votes: {voteCount}");
-                
-                option.Text = $"Vote Option ({voteCount})";
-                menu.Refresh();
-            });
-
-            menu.AddItem("Enabled Option", (p, option) =>
-            {
-                p.PrintToChat("This is an enabled option!");
-            });
-            
-            menu.AddItem("Disabled Option", (p, option) => { }, true);
-            
-            menu.AddItem("Another Enabled Option", (p, option) =>
-            {
-                p.PrintToChat("This is another enabled option!");
-            });
-
-            menu.Display(); // Display the main menu
-            return menu
-        }
-        private void CreateSubMenu(CCSPlayerController player, Menu prevMenu)
-        {
-            Menu subMenu = new (player, this)
-            {
-                IsSubMenu = true,
-                PrevMenu = TestMenu(player) // when you hit 7. Back it will send you to the TestMenu
-            };
-
-            subMenu.AddItem("SubOption 1", (p, o) =>
-            {
-                p.PrintToChat("SubOption 1!");
-            });
-               
-            subMenu.Display();
-        }
+        mainMenu.Display();
     }
-}
+    private Menu CreateVoteMenu(CCSPlayerController player, Menu prevMenu)
+    {
+        Menu voteMenu = new Menu(player, this)
+        {
+            Title = $"Vote Test | {VoteCount}",
+            IsSubMenu = true,
+            PrevMenu = prevMenu
+        };
+        voteMenu.AddItem("Vote", (p, option) =>
+        {
+            VoteCount++;
+            voteMenu.Title = $"Vote Test | {VoteCount}";
+            voteMenu.Refresh(); // this will refresh the menu and update the title.
+        });
+        voteMenu.Display();
+        return voteMenu;
+    }
+    private Menu CreatePistolMenu(CCSPlayerController player, Menu prevMenu)
+    {
+        Menu pistolMenu = new Menu(player, this)
+        {
+            Title = "Pistols",
+            IsSubMenu = true,
+            ShowDisabledOptionNum = true,
+            PrevMenu = prevMenu // if prev menu is set when using 7. Back will send you to it.
+        };
+
+        foreach (var kvp in Pistols)
+        {
+            var key = kvp.Key;
+            var value = kvp.Value;
+            bool shouldBeDisabled = value.Contains("TEC");
+
+            pistolMenu.AddItem(value, (p, option) =>
+            {
+                player.RemoveWeapons();
+                p.PrintToChat($"You got pistol {value}");
+                Server.NextFrame(() => p.GiveNamedItem(key));
+            }, shouldBeDisabled);
+        }
+
+        pistolMenu.Display();
+        return pistolMenu;
+    }
+
+    private Menu CreateRifleMenu(CCSPlayerController player, Menu prevMenu)
+    {
+        Menu rifleMenu = new Menu(player, this)
+        {
+            Title = "Rifles",
+            IsSubMenu = true,
+            ShowDisabledOptionNum = true,
+            PrevMenu = prevMenu
+        };
+
+        foreach (var kvp in Rifles)
+        {
+            var key = kvp.Key;
+            var value = kvp.Value;
+            bool shouldBeDisabled = value.Contains("SCAR-20");
+
+            rifleMenu.AddItem(value, (p, option) =>
+            {
+                player.RemoveWeapons();
+                p.PrintToChat($"You got rifle {value}");
+                Server.NextFrame(() => p.GiveNamedItem(key));
+            }, shouldBeDisabled);
+        }
+
+        rifleMenu.Display();
+        return rifleMenu;
+    }
+
+    private Menu CreateSMGMenu(CCSPlayerController player, Menu prevMenu)
+    {
+        Menu smgMenu = new Menu(player, this)
+        {
+            Title = "SMGs",
+            IsSubMenu = true,
+            ShowDisabledOptionNum = true,
+            PrevMenu = prevMenu
+        };
+
+        foreach (var kvp in SMGs)
+        {
+            var key = kvp.Key;
+            var value = kvp.Value;
+
+            smgMenu.AddItem(value, (p, option) =>
+            {
+                player.RemoveWeapons();
+                p.PrintToChat($"You got SMG {value}");
+                Server.NextFrame(() => p.GiveNamedItem(key));
+            });
+        }
+
+        smgMenu.Display();
+        return smgMenu;
+    }
+
+    private Menu CreateHeavyMenu(CCSPlayerController player, Menu prevMenu)
+    {
+        Menu heavyMenu = new Menu(player, this)
+        {
+            Title = "Heavy Weapons",
+            IsSubMenu = true,
+            ShowDisabledOptionNum = true,
+            PrevMenu = prevMenu
+        };
+
+        foreach (var kvp in Heavy)
+        {
+            var key = kvp.Key;
+            var value = kvp.Value;
+            bool shouldBeDisabled = value.Contains("Negev");
+
+            heavyMenu.AddItem(value, (p, option) =>
+            {
+                player.RemoveWeapons();
+                p.PrintToChat($"You got heavy weapon {value}");
+                Server.NextFrame(() => p.GiveNamedItem(key));
+            }, shouldBeDisabled);
+        }
+
+        heavyMenu.Display();
+        return heavyMenu;
+    }
 ```
 # MenuTypes
 ```C#
