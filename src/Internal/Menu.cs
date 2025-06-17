@@ -194,7 +194,7 @@ namespace CS2ScreenMenuAPI
                             bool isSubMenu = IsSubMenu;
 
                             Close(player);
-                            PlayCloseSound();
+                            PlaySelectSound();
 
                             CreateResolutionMenu(player, _plugin, () =>
                             {
@@ -305,18 +305,15 @@ namespace CS2ScreenMenuAPI
                 if (showNextButton && navCount++ == navIndex) { NextPage(); return; }
                 if (HasExitButon && navCount++ == navIndex) { Close(_player); PlayCloseSound(); return; }
 
-                // === FIX IS HERE ===
-                // Added the logic to handle the Resolution option selection.
                 if (ShowResolutionOption && navCount++ == navIndex)
                 {
-                    PlaySelectSound(); // Play a sound for selection consistency
+                    PlaySelectSound();
 
                     Menu currentMenu = this;
                     Menu? prevMenu = PrevMenu;
                     bool isSubMenu = IsSubMenu;
 
-                    MenuAPI.SetActiveMenu(_player, null);
-                    _isClosed = true;
+                    Close(_player);
 
                     CreateResolutionMenu(_player, _plugin, () =>
                     {
@@ -592,6 +589,7 @@ namespace CS2ScreenMenuAPI
             if (CurrentPage > 0 || (IsSubMenu && PrevMenu != null)) count++;
             if (CurrentPage < GetMaxPage()) count++;
             if (HasExitButon) count++;
+            if (ShowResolutionOption) count++;
             return count;
         }
         private void PlaySelectSound() { if (!string.IsNullOrEmpty(_config.Sounds.Select)) _player.EmitSound(_config.Sounds.Select); }

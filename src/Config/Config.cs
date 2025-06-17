@@ -27,7 +27,6 @@ namespace CS2ScreenMenuAPI
         public bool ShowDisabledOptionNum { get; set; } = true;
         public bool FreezePlayer { get; set; } = true;
         public bool ShowControlsInfo { get; set; } = true;
-        public string ScrollPrefix { get; set; } = ">";
         public Dictionary<string, Resolution> Resolutions { get; set; } = [];
     }
     public class Database_Config
@@ -141,8 +140,7 @@ namespace CS2ScreenMenuAPI
                 ShowDisabledOptionNum = bool.Parse(settingsTable["ShowDisabledOptionNum"].ToString()!),
                 ShowPageCount = bool.Parse(settingsTable["ShowPageCount"].ToString()!),
                 FreezePlayer = bool.Parse(settingsTable["FreezePlayer"].ToString()!),
-                ShowControlsInfo = bool.Parse(settingsTable["ShowControlsInfo"].ToString()!),
-                ScrollPrefix = settingsTable["ScrollPrefix"].ToString()!,
+                ShowControlsInfo = bool.Parse(settingsTable["ShowControlsInfo"].ToString()!)
             };
 
             if (settingsTable.ContainsKey("Resolutions"))

@@ -20,6 +20,10 @@ namespace CS2ScreenMenuAPI
         private nint? _createdForPawn = null;
         public bool ForceRefresh = true;
         private bool _presentingHtml = false;
+        private bool _isFading = false;
+        private float _fadeStartTime = 0f;
+        private const float FADE_DURATION = 0.1f;
+
         private string? _htmlContent = null;
         private nint _menuCurrentObserver = nint.Zero;
         private ObserverMode _menuCurrentObserverMode;
@@ -243,13 +247,19 @@ namespace CS2ScreenMenuAPI
                 writeLine(_player.Localizer("Close"), new TextStyling { Foreground = true, Highlight = isFlashing || isScrolling }, 9);
             }
 
-            // NOTE: I am assuming you will add a line for the key '0' for the resolution option here if needed.
-            // If you want that to flash, the logic would be:
-            // if (_menu.ShowResolutionOption)
-            // {
-            //     bool isFlashing = _menu._isFlashing && _menu._flashKey == 0;
-            //     writeLine("Change Resolution", new TextStyling { Foreground = true, Highlight = isFlashing }, 0);
-            // }
+            if (_menu.ShowResolutionOption)
+            {
+                bool isFlashing = _menu._isFlashing && _menu._flashKey == 0;
+                int navIndexForScroll = _menu.GetEnabledOptionsCountOnCurrentPage() + (showBackButton ? 1 : 0) + (showNextButton ? 1 : 0) + (_menu.HasExitButon ? 1 : 0);
+                bool isScrolling = !_menu._isFlashing && _menu._currentSelectionIndex == navIndexForScroll;
+                writeLine($"{_player.Localizer("ChangeRes")}", new TextStyling { Foreground = true, Highlight = isFlashing || isScrolling }, 0);
+            }
+
+            if (_menu.MenuType != MenuType.KeyPress && _menu.ShowControlsInfo)
+            {
+                writeSimpleLine(_player.Localizer("ScrollKeys", _menu.ScrollUpKey, _menu.ScrollDownKey), default);
+                writeSimpleLine(_player.Localizer("SelectKey", _menu.SelectKey), default);
+            }
         }
         public void DestroyEntities()
         {
