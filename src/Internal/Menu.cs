@@ -592,9 +592,25 @@ namespace CS2ScreenMenuAPI
             if (ShowResolutionOption) count++;
             return count;
         }
-        private void PlaySelectSound() { if (!string.IsNullOrEmpty(_config.Sounds.Select)) _player.EmitSound(_config.Sounds.Select); }
-        private void PlayCloseSound() { if (!string.IsNullOrEmpty(_config.Sounds.Close)) _player.EmitSound(_config.Sounds.Close); }
-        private void PlayNextSound() { if (!string.IsNullOrEmpty(_config.Sounds.Next)) _player.EmitSound(_config.Sounds.Next); }
-        private void PlayPrevSound() { if (!string.IsNullOrEmpty(_config.Sounds.Prev)) _player.EmitSound(_config.Sounds.Prev); }
+        private void PlaySelectSound()
+        {
+            RecipientFilter filter = [_player];
+            if (!string.IsNullOrEmpty(_config.Sounds.Select)) _player.EmitSound(_config.Sounds.Select, filter);
+        }
+        private void PlayCloseSound()
+        {
+            RecipientFilter filter = [_player];
+            if (!string.IsNullOrEmpty(_config.Sounds.Close)) _player.EmitSound(_config.Sounds.Close, filter);
+        }
+        private void PlayNextSound()
+        {
+            RecipientFilter filter = [_player];
+            if (!string.IsNullOrEmpty(_config.Sounds.Next)) _player.EmitSound(_config.Sounds.Next, filter);
+        }
+        private void PlayPrevSound()
+        {
+            RecipientFilter filter = [_player];
+            if (!string.IsNullOrEmpty(_config.Sounds.Prev)) _player.EmitSound(_config.Sounds.Prev, filter);
+        }
     }
 }
