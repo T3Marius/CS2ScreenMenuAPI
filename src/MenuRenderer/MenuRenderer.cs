@@ -20,8 +20,6 @@ namespace CS2ScreenMenuAPI
         private nint? _createdForPawn = null;
         public bool ForceRefresh = true;
         private bool _presentingHtml = false;
-        private bool _isFading = false;
-        private float _fadeStartTime = 0f;
         private const float FADE_DURATION = 0.1f;
 
         private string? _htmlContent = null;

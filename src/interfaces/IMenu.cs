@@ -11,6 +11,7 @@ namespace CS2ScreenMenuAPI
         public void OnKeyPress(CCSPlayerController player, int key);
         void Refresh();
         void Display();
+        void Display(CCSPlayerController player);
     }
     public enum PostSelect
     {

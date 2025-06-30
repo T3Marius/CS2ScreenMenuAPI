@@ -12,8 +12,8 @@ namespace CS2ScreenMenuAPI
 {
     public class Menu : IMenu, IDisposable
     {
-        internal readonly CCSPlayerController _player;
-        private readonly BasePlugin _plugin;
+        internal CCSPlayerController _player = null!;
+        private readonly BasePlugin _plugin = null!;
         private readonly Dictionary<string, CommandInfo.CommandCallback> _registeredKeyCommands = new();
         private bool _isClosed;
         private bool _isResolutionMenuShown = false;
@@ -21,7 +21,7 @@ namespace CS2ScreenMenuAPI
         internal int _flashKey = -1;
         private PlayerButtons g_OldButtons;
 
-        private readonly MenuRenderer _renderer;
+        private MenuRenderer _renderer = null!;
 
         public Menu? PrevMenu { get; set; } = null;
         public Menu? ParentMenu { get => PrevMenu; set => PrevMenu = value; }
@@ -50,7 +50,76 @@ namespace CS2ScreenMenuAPI
             _plugin = plugin;
             _config = ConfigLoader.Load();
 
-            _renderer = new MenuRenderer(this, _player);
+            Initialize(player);
+        }
+
+        public Menu(BasePlugin plugin)
+        {
+            _player = null!;
+            _plugin = plugin;
+            _config = ConfigLoader.Load();
+            _renderer = null!;
+
+            ConfigureSettings();
+
+            if (!ResolutionDatabase._initialized)
+            {
+                try { ResolutionDatabase.InitializeAsync(_plugin.Logger, _config.Database).GetAwaiter().GetResult(); }
+                catch (Exception ex) { _plugin.Logger.LogError($"Resolution DB init failed: {ex}"); }
+            }
+        }
+
+        private void RegisterKeyCommands()
+        {
+            for (int i = 0; i <= 9; i++)
+            {
+                string commandName = $"css_{i}";
+                int key = i;
+
+                CommandInfo.CommandCallback callback = (player, info) =>
+                {
+                    if (player == null || !player.IsValid || player != _player || _isClosed) return;
+                    if (MenuAPI.GetActiveMenu(player) != this) return;
+                    OnKeyPress(player, key);
+                };
+
+                _plugin.AddCommand(commandName, "Handles menu navigation", callback);
+                _registeredKeyCommands[commandName] = callback;
+            }
+        }
+        public void AddItem(string text, Action<CCSPlayerController, IMenuOption> callback, bool disabled = false)
+        {
+            Options.Add(new MenuOption { Text = text, Callback = callback, IsDisabled = disabled });
+            if (_renderer != null) _renderer.ForceRefresh = true;
+        }
+        public void Refresh()
+        {
+            int maxPage = GetMaxPage();
+            if (CurrentPage > maxPage)
+            {
+                CurrentPage = maxPage;
+            }
+            if (CurrentPage < 0)
+            {
+                CurrentPage = 0;
+            }
+
+            int totalSelectableItems = GetEnabledOptionsCountOnCurrentPage() + GetNavigationButtonCount();
+            if (_currentSelectionIndex >= totalSelectableItems && totalSelectableItems > 0)
+            {
+                _currentSelectionIndex = totalSelectableItems - 1;
+            }
+            else if (totalSelectableItems == 0)
+            {
+                _currentSelectionIndex = 0;
+            }
+
+            if (_renderer != null) _renderer.ForceRefresh = true;
+        }
+        private void Initialize(CCSPlayerController player)
+        {
+            _player = player;
+            _renderer = new MenuRenderer(this, player);
 
             ConfigureSettings();
             RegisterEvents();
@@ -76,13 +145,13 @@ namespace CS2ScreenMenuAPI
                 _isResolutionMenuShown = true;
                 CreateResolutionMenu(_player, _plugin, () =>
                 {
-                    Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player);
+                    Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
                     MenuPositionX = playerRes.PositionX;
-                    _renderer.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
+                    _renderer!.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
                     _isClosed = false;
                     _isResolutionMenuShown = false;
                     RegisterKeyCommands();
-                    MenuAPI.SetActiveMenu(_player, this);
+                    MenuAPI.SetActiveMenu(_player!, this);
                     Display();
                 });
             }
@@ -95,62 +164,30 @@ namespace CS2ScreenMenuAPI
                 Display();
             }
         }
-
-        private void RegisterKeyCommands()
-        {
-            for (int i = 0; i <= 9; i++)
-            {
-                string commandName = $"css_{i}";
-                int key = i;
-
-                CommandInfo.CommandCallback callback = (player, info) =>
-                {
-                    if (player == null || !player.IsValid || player != _player || _isClosed) return;
-                    if (MenuAPI.GetActiveMenu(player) != this) return;
-                    OnKeyPress(player, key);
-                };
-
-                _plugin.AddCommand(commandName, "Handles menu navigation", callback);
-                _registeredKeyCommands[commandName] = callback;
-            }
-        }
-
-        public void AddItem(string text, Action<CCSPlayerController, IMenuOption> callback, bool disabled = false)
-        {
-            Options.Add(new MenuOption { Text = text, Callback = callback, IsDisabled = disabled });
-            _renderer.ForceRefresh = true;
-        }
-        public void Refresh()
-        {
-            int maxPage = GetMaxPage();
-            if (CurrentPage > maxPage)
-            {
-                CurrentPage = maxPage;
-            }
-            if (CurrentPage < 0)
-            {
-                CurrentPage = 0;
-            }
-
-            int totalSelectableItems = GetEnabledOptionsCountOnCurrentPage() + GetNavigationButtonCount();
-            if (_currentSelectionIndex >= totalSelectableItems && totalSelectableItems > 0)
-            {
-                _currentSelectionIndex = totalSelectableItems - 1;
-            }
-            else if (totalSelectableItems == 0)
-            {
-                _currentSelectionIndex = 0;
-            }
-
-            _renderer.ForceRefresh = true;
-        }
-
         public void Display()
         {
             _player.CreateFakeWorldText(this);
             Server.NextFrame(() => _renderer.Draw());
         }
+        public void Display(CCSPlayerController player)
+        {
+            if (_player == null)
+            {
+                // Initialize for this player if not already done
+                Initialize(player);
+            }
+            else if (_player != player)
+            {
+                // Create temporary renderer for different player
+                var tempRenderer = new MenuRenderer(this, player);
+                player.CreateFakeWorldText(this);
+                Server.NextFrame(() => tempRenderer.Draw());
+                return;
+            }
 
+            player.CreateFakeWorldText(this);
+            Server.NextFrame(() => _renderer?.Draw());
+        }
         private void TransitionToPrevMenu()
         {
             if (PrevMenu == null) return;

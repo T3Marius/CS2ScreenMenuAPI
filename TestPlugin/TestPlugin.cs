@@ -3,6 +3,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CS2ScreenMenuAPI;
 namespace TestMenu;
+
 public class TestMenu : BasePlugin
 {
     public override string ModuleName => "TestMenu";
@@ -64,7 +65,20 @@ public class TestMenu : BasePlugin
     {
         AddCommand("css_test", "test menu", Command_Test);
     }
+    public void Command_NoPlayerArg()
+    {
+        // you can also create the menu without needing to call the player arg.
 
+        Menu menu = new Menu(this)
+        {
+            Title = "No Player Arg Menu"
+        };
+
+        foreach (var p in Utilities.GetPlayers())
+        {
+            menu.Display(p); // but you must call player at display, no matter what.
+        }
+    }
     public void Command_Test(CCSPlayerController? player, CommandInfo info)
     {
         if (player == null)
@@ -76,19 +90,23 @@ public class TestMenu : BasePlugin
             ShowDisabledOptionNum = true,
         };
 
-        mainMenu.AddItem("Select Pistol", (p, option) => {
+        mainMenu.AddItem("Select Pistol", (p, option) =>
+        {
             CreatePistolMenu(p, mainMenu); // Create the pistol menu with it's parent.
         });
 
-        mainMenu.AddItem("Select Rifle", (p, option) => {
+        mainMenu.AddItem("Select Rifle", (p, option) =>
+        {
             CreateRifleMenu(p, mainMenu);
         });
 
-        mainMenu.AddItem("Select SMG", (p, option) => {
+        mainMenu.AddItem("Select SMG", (p, option) =>
+        {
             CreateSMGMenu(p, mainMenu);
         });
 
-        mainMenu.AddItem("Select Heavy", (p, option) => {
+        mainMenu.AddItem("Select Heavy", (p, option) =>
+        {
             CreateHeavyMenu(p, mainMenu);
         });
 
