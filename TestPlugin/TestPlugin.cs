@@ -129,7 +129,7 @@ public class TestMenu : BasePlugin
         {
             VoteCount++;
             voteMenu.Title = $"Vote Test | {VoteCount}";
-            voteMenu.Refresh(); // this will refresh the menu and update the title.
+            voteMenu.Refresh();
         });
         voteMenu.Display();
         return voteMenu;
