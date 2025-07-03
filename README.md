@@ -69,7 +69,21 @@ ANOTHER NOTE: When using the API in a plugin you don't need to do anything other
 ```
 # MenuExample
 ```c#
- public void Command_Test(CCSPlayerController? player, CommandInfo info)
+    public void Command_NoPlayerArg()
+    {
+        // you can also create the menu without needing to call the player arg.
+
+        Menu menu = new Menu(this)
+        {
+            Title = "No Player Arg Menu"
+        };
+
+        foreach (var p in Utilities.GetPlayers())
+        {
+            menu.Display(p); // but you must call player at display, no matter what.
+        }
+    }
+    public void Command_Test(CCSPlayerController? player, CommandInfo info)
     {
         if (player == null)
             return;
@@ -80,20 +94,9 @@ ANOTHER NOTE: When using the API in a plugin you don't need to do anything other
             ShowDisabledOptionNum = true,
         };
 
-        mainMenu.AddItem("Select Pistol", (p, option) => {
+        mainMenu.AddItem("Select Pistol", (p, option) =>
+        {
             CreatePistolMenu(p, mainMenu); // Create the pistol menu with it's parent.
-        });
-
-        mainMenu.AddItem("Select Rifle", (p, option) => {
-            CreateRifleMenu(p, mainMenu);
-        });
-
-        mainMenu.AddItem("Select SMG", (p, option) => {
-            CreateSMGMenu(p, mainMenu);
-        });
-
-        mainMenu.AddItem("Select Heavy", (p, option) => {
-            CreateHeavyMenu(p, mainMenu);
         });
 
         mainMenu.AddItem("Refresh Test", (p, o) =>
@@ -146,89 +149,6 @@ ANOTHER NOTE: When using the API in a plugin you don't need to do anything other
 
         pistolMenu.Display();
         return pistolMenu;
-    }
-
-    private Menu CreateRifleMenu(CCSPlayerController player, Menu prevMenu)
-    {
-        Menu rifleMenu = new Menu(player, this)
-        {
-            Title = "Rifles",
-            IsSubMenu = true,
-            ShowDisabledOptionNum = true,
-            PrevMenu = prevMenu
-        };
-
-        foreach (var kvp in Rifles)
-        {
-            var key = kvp.Key;
-            var value = kvp.Value;
-            bool shouldBeDisabled = value.Contains("SCAR-20");
-
-            rifleMenu.AddItem(value, (p, option) =>
-            {
-                player.RemoveWeapons();
-                p.PrintToChat($"You got rifle {value}");
-                Server.NextFrame(() => p.GiveNamedItem(key));
-            }, shouldBeDisabled);
-        }
-
-        rifleMenu.Display();
-        return rifleMenu;
-    }
-
-    private Menu CreateSMGMenu(CCSPlayerController player, Menu prevMenu)
-    {
-        Menu smgMenu = new Menu(player, this)
-        {
-            Title = "SMGs",
-            IsSubMenu = true,
-            ShowDisabledOptionNum = true,
-            PrevMenu = prevMenu
-        };
-
-        foreach (var kvp in SMGs)
-        {
-            var key = kvp.Key;
-            var value = kvp.Value;
-
-            smgMenu.AddItem(value, (p, option) =>
-            {
-                player.RemoveWeapons();
-                p.PrintToChat($"You got SMG {value}");
-                Server.NextFrame(() => p.GiveNamedItem(key));
-            });
-        }
-
-        smgMenu.Display();
-        return smgMenu;
-    }
-
-    private Menu CreateHeavyMenu(CCSPlayerController player, Menu prevMenu)
-    {
-        Menu heavyMenu = new Menu(player, this)
-        {
-            Title = "Heavy Weapons",
-            IsSubMenu = true,
-            ShowDisabledOptionNum = true,
-            PrevMenu = prevMenu
-        };
-
-        foreach (var kvp in Heavy)
-        {
-            var key = kvp.Key;
-            var value = kvp.Value;
-            bool shouldBeDisabled = value.Contains("Negev");
-
-            heavyMenu.AddItem(value, (p, option) =>
-            {
-                player.RemoveWeapons();
-                p.PrintToChat($"You got heavy weapon {value}");
-                Server.NextFrame(() => p.GiveNamedItem(key));
-            }, shouldBeDisabled);
-        }
-
-        heavyMenu.Display();
-        return heavyMenu;
     }
 ```
 # MenuTypes
