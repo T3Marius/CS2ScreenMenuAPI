@@ -486,7 +486,6 @@ namespace CS2ScreenMenuAPI
             {
                 CurrentPage++;
 
-                // For scrollable menus, keep selection on navigation buttons
                 if (MenuType != MenuType.KeyPress)
                 {
                     int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
@@ -495,23 +494,19 @@ namespace CS2ScreenMenuAPI
 
                     if (showNextButton)
                     {
-                        // Stay on Next button
                         _currentSelectionIndex = enabledOptionsCount + (showBackButton ? 1 : 0);
                     }
                     else if (showBackButton)
                     {
-                        // Move to Back button if no Next button
                         _currentSelectionIndex = enabledOptionsCount;
                     }
                     else
                     {
-                        // No navigation buttons, go to first option
                         _currentSelectionIndex = 0;
                     }
                 }
                 else
                 {
-                    // For key press menus, reset to first option
                     _currentSelectionIndex = 0;
                 }
 
@@ -526,7 +521,6 @@ namespace CS2ScreenMenuAPI
             {
                 CurrentPage--;
 
-                // For scrollable menus, keep selection on navigation buttons
                 if (MenuType != MenuType.KeyPress)
                 {
                     int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
