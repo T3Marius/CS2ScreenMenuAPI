@@ -87,11 +87,6 @@ namespace CS2ScreenMenuAPI
                 _registeredKeyCommands[commandName] = callback;
             }
         }
-        public void AddItem(string text, Action<CCSPlayerController, IMenuOption> callback, bool disabled = false)
-        {
-            Options.Add(new MenuOption { Text = text, Callback = callback, IsDisabled = disabled });
-            if (_renderer != null) _renderer.ForceRefresh = true;
-        }
         public void Refresh()
         {
             int maxPage = GetMaxPage();
@@ -103,7 +98,6 @@ namespace CS2ScreenMenuAPI
             {
                 CurrentPage = 0;
             }
-
             int totalSelectableItems = GetEnabledOptionsCountOnCurrentPage() + GetNavigationButtonCount();
             if (_currentSelectionIndex >= totalSelectableItems && totalSelectableItems > 0)
             {
@@ -113,7 +107,35 @@ namespace CS2ScreenMenuAPI
             {
                 _currentSelectionIndex = 0;
             }
+            if (_renderer != null)
+            {
+                _renderer.ForceRefresh = true;
 
+                if (_player != null && MenuAPI.GetActiveMenu(_player) == this)
+                {
+                    Server.NextFrame(() =>
+                    {
+                        if (!_isClosed && _player != null && _player.IsValid && MenuAPI.GetActiveMenu(_player) == this)
+                        {
+                            _renderer.Draw();
+                        }
+                    });
+                }
+            }
+            else if (_player != null && MenuAPI.GetActiveMenu(_player) == this)
+            {
+                Server.NextFrame(() =>
+                {
+                    if (!_isClosed && _player != null && _player.IsValid && MenuAPI.GetActiveMenu(_player) == this)
+                    {
+                        Display();
+                    }
+                });
+            }
+        }
+        public void AddItem(string text, Action<CCSPlayerController, IMenuOption> callback, bool disabled = false)
+        {
+            Options.Add(new MenuOption { Text = text, Callback = callback, IsDisabled = disabled });
             if (_renderer != null) _renderer.ForceRefresh = true;
         }
         private void Initialize(CCSPlayerController player)
@@ -173,18 +195,15 @@ namespace CS2ScreenMenuAPI
         {
             if (_player == null)
             {
-                // Initialize for this player if not already done
                 Initialize(player);
             }
             else if (_player != player)
             {
-                // Create temporary renderer for different player
                 var tempRenderer = new MenuRenderer(this, player);
                 player.CreateFakeWorldText(this);
                 Server.NextFrame(() => tempRenderer.Draw());
                 return;
             }
-
             player.CreateFakeWorldText(this);
             Server.NextFrame(() => _renderer?.Draw());
         }
@@ -466,7 +485,36 @@ namespace CS2ScreenMenuAPI
             if (CurrentPage < maxPage)
             {
                 CurrentPage++;
-                _currentSelectionIndex = 0;
+
+                // For scrollable menus, keep selection on navigation buttons
+                if (MenuType != MenuType.KeyPress)
+                {
+                    int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
+                    bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
+                    bool showNextButton = CurrentPage < GetMaxPage();
+
+                    if (showNextButton)
+                    {
+                        // Stay on Next button
+                        _currentSelectionIndex = enabledOptionsCount + (showBackButton ? 1 : 0);
+                    }
+                    else if (showBackButton)
+                    {
+                        // Move to Back button if no Next button
+                        _currentSelectionIndex = enabledOptionsCount;
+                    }
+                    else
+                    {
+                        // No navigation buttons, go to first option
+                        _currentSelectionIndex = 0;
+                    }
+                }
+                else
+                {
+                    // For key press menus, reset to first option
+                    _currentSelectionIndex = 0;
+                }
+
                 Refresh();
                 PlayNextSound();
             }
@@ -477,7 +525,32 @@ namespace CS2ScreenMenuAPI
             if (CurrentPage > 0)
             {
                 CurrentPage--;
-                _currentSelectionIndex = 0;
+
+                // For scrollable menus, keep selection on navigation buttons
+                if (MenuType != MenuType.KeyPress)
+                {
+                    int enabledOptionsCount = GetEnabledOptionsCountOnCurrentPage();
+                    bool showBackButton = CurrentPage > 0 || (IsSubMenu && PrevMenu != null);
+                    bool showNextButton = CurrentPage < GetMaxPage();
+
+                    if (showBackButton)
+                    {
+                        _currentSelectionIndex = enabledOptionsCount;
+                    }
+                    else if (showNextButton)
+                    {
+                        _currentSelectionIndex = enabledOptionsCount;
+                    }
+                    else
+                    {
+                        _currentSelectionIndex = 0;
+                    }
+                }
+                else
+                {
+                    _currentSelectionIndex = 0;
+                }
+
                 Refresh();
                 PlayPrevSound();
             }

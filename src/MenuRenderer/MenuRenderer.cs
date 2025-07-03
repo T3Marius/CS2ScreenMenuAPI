@@ -79,11 +79,6 @@ namespace CS2ScreenMenuAPI
                 _presentingHtml = true;
             }
         }
-        private Color ApplyFade(Color originalColor, float alphaMultiplier)
-        {
-            int newAlpha = (int)(originalColor.A * alphaMultiplier);
-            return Color.FromArgb(newAlpha, originalColor.R, originalColor.G, originalColor.B);
-        }
         private bool DrawWorldText()
         {
             var observerInfo = _player.GetObserverInfo();
@@ -183,6 +178,7 @@ namespace CS2ScreenMenuAPI
             int startIndex = _menu.CurrentPage * _menu.ItemsPerPage;
             int endIndex = Math.Min(_menu.Options.Count, startIndex + _menu.ItemsPerPage);
             int visibleOptionIndex = 1;
+            int enabledOptionIndex = 0; // Track enabled options separately
 
             for (int i = startIndex; i < endIndex; i++)
             {
@@ -190,9 +186,11 @@ namespace CS2ScreenMenuAPI
 
                 bool isFlashingThisItem = _menu._isFlashing && _menu._flashKey == visibleOptionIndex;
 
+                // Only enabled options can be scrolled to
                 bool isScrollingThisItem = !_menu._isFlashing &&
                                            (_menu.MenuType != MenuType.KeyPress) &&
-                                           (visibleOptionIndex - 1) == _menu._currentSelectionIndex;
+                                           !option.IsDisabled &&
+                                           enabledOptionIndex == _menu._currentSelectionIndex;
 
                 var textStyle = new TextStyling
                 {
@@ -207,6 +205,12 @@ namespace CS2ScreenMenuAPI
                 else
                 {
                     writeSimpleLine(option.Text, textStyle);
+                }
+
+                // Only increment enabled index for enabled options
+                if (!option.IsDisabled)
+                {
+                    enabledOptionIndex++;
                 }
             }
 
@@ -224,7 +228,7 @@ namespace CS2ScreenMenuAPI
             {
                 bool isFlashing = _menu._isFlashing && _menu._flashKey == 7;
                 int navIndexForScroll = _menu.GetEnabledOptionsCountOnCurrentPage();
-                bool isScrolling = !_menu._isFlashing && _menu._currentSelectionIndex == navIndexForScroll;
+                bool isScrolling = !_menu._isFlashing && (_menu.MenuType != MenuType.KeyPress) && _menu._currentSelectionIndex == navIndexForScroll;
                 string text = _menu.IsSubMenu && _menu.CurrentPage == 0 ? _player.Localizer("Back") : _player.Localizer("Prev");
                 writeLine(text, new TextStyling { Foreground = true, Highlight = isFlashing || isScrolling }, 7);
             }
@@ -233,7 +237,7 @@ namespace CS2ScreenMenuAPI
             {
                 bool isFlashing = _menu._isFlashing && _menu._flashKey == 8;
                 int navIndexForScroll = _menu.GetEnabledOptionsCountOnCurrentPage() + (showBackButton ? 1 : 0);
-                bool isScrolling = !_menu._isFlashing && _menu._currentSelectionIndex == navIndexForScroll;
+                bool isScrolling = !_menu._isFlashing && (_menu.MenuType != MenuType.KeyPress) && _menu._currentSelectionIndex == navIndexForScroll;
                 writeLine(_player.Localizer("Next"), new TextStyling { Foreground = true, Highlight = isFlashing || isScrolling }, 8);
             }
 
@@ -241,7 +245,7 @@ namespace CS2ScreenMenuAPI
             {
                 bool isFlashing = _menu._isFlashing && _menu._flashKey == 9;
                 int navIndexForScroll = _menu.GetEnabledOptionsCountOnCurrentPage() + (showBackButton ? 1 : 0) + (showNextButton ? 1 : 0);
-                bool isScrolling = !_menu._isFlashing && _menu._currentSelectionIndex == navIndexForScroll;
+                bool isScrolling = !_menu._isFlashing && (_menu.MenuType != MenuType.KeyPress) && _menu._currentSelectionIndex == navIndexForScroll;
                 writeLine(_player.Localizer("Close"), new TextStyling { Foreground = true, Highlight = isFlashing || isScrolling }, 9);
             }
 
@@ -249,12 +253,13 @@ namespace CS2ScreenMenuAPI
             {
                 bool isFlashing = _menu._isFlashing && _menu._flashKey == 0;
                 int navIndexForScroll = _menu.GetEnabledOptionsCountOnCurrentPage() + (showBackButton ? 1 : 0) + (showNextButton ? 1 : 0) + (_menu.HasExitButon ? 1 : 0);
-                bool isScrolling = !_menu._isFlashing && _menu._currentSelectionIndex == navIndexForScroll;
+                bool isScrolling = !_menu._isFlashing && (_menu.MenuType != MenuType.KeyPress) && _menu._currentSelectionIndex == navIndexForScroll;
                 writeLine($"{_player.Localizer("ChangeRes")}", new TextStyling { Foreground = true, Highlight = isFlashing || isScrolling }, 0);
             }
 
             if (_menu.MenuType != MenuType.KeyPress && _menu.ShowControlsInfo)
             {
+
                 writeSimpleLine(_player.Localizer("ScrollKeys", _menu.ScrollUpKey, _menu.ScrollDownKey), default);
                 writeSimpleLine(_player.Localizer("SelectKey", _menu.SelectKey), default);
             }
