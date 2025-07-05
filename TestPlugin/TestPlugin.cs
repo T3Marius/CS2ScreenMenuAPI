@@ -1,4 +1,5 @@
-﻿using CounterStrikeSharp.API;
+﻿using System.Drawing;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CS2ScreenMenuAPI;
@@ -64,6 +65,7 @@ public class TestMenu : BasePlugin
     public override void Load(bool hotReload)
     {
         AddCommand("css_test", "test menu", Command_Test);
+
     }
     public void Command_NoPlayerArg()
     {
@@ -114,8 +116,29 @@ public class TestMenu : BasePlugin
         {
             CreateVoteMenu(p, mainMenu);
         });
+        mainMenu.AddItem("Scrollable Menu", (p, o) =>
+        {
+            CreateScrollableMenu(player, mainMenu);
+        });
 
         mainMenu.Display();
+    }
+    private Menu CreateScrollableMenu(CCSPlayerController player, Menu prevMenu)
+    {
+        Menu scrollableMenu = new Menu(this)
+        {
+            Title = "Scrollable Menu",
+            IsSubMenu = true,
+            PrevMenu = prevMenu
+        };
+        scrollableMenu.SetMenuType(MenuType.Scrollable);
+
+        for (int i = 1; i < 5; i++)
+        {
+            scrollableMenu.AddItem(i.ToString(), (p, o) => { });
+        }
+        scrollableMenu.Display(player);
+        return scrollableMenu;
     }
     private Menu CreateVoteMenu(CCSPlayerController player, Menu prevMenu)
     {

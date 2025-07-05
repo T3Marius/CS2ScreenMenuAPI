@@ -12,6 +12,7 @@ namespace CS2ScreenMenuAPI
         void Refresh();
         void Display();
         void Display(CCSPlayerController player);
+        void SetMenuType(MenuType menuType);
     }
     public enum PostSelect
     {

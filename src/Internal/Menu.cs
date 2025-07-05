@@ -33,6 +33,7 @@ namespace CS2ScreenMenuAPI
         public int ItemsPerPage { get; } = 6;
         public PostSelect PostSelect = PostSelect.Nothing;
         public MenuType MenuType = MenuType.KeyPress;
+        private bool _menuTypeExplicitlySet = false;
         public bool HasExitButon { get; set; }
         public bool ShowPageCount { get; set; }
         public bool ShowControlsInfo { get; set; }
@@ -43,6 +44,7 @@ namespace CS2ScreenMenuAPI
         internal string ScrollUpKey = "W";
         internal string ScrollDownKey = "S";
         internal string SelectKey = "E";
+        internal string ExitKey = "Tab";
 
         public Menu(CCSPlayerController player, BasePlugin plugin)
         {
@@ -622,6 +624,7 @@ namespace CS2ScreenMenuAPI
                 if (ButtonMapping.TryGetValue(ScrollUpKey, out PlayerButtons scrollUpButton) && (button & scrollUpButton) == 0 && (g_OldButtons & scrollUpButton) != 0) { ScrollUp(); }
                 else if (ButtonMapping.TryGetValue(ScrollDownKey, out PlayerButtons scrollDownButton) && (button & scrollDownButton) == 0 && (g_OldButtons & scrollDownButton) != 0) { ScrollDown(); }
                 else if (ButtonMapping.TryGetValue(SelectKey, out PlayerButtons selectButton) && (button & selectButton) == 0 && (g_OldButtons & selectButton) != 0) { SelectCurrentOption(); }
+                else if (ButtonMapping.TryGetValue(ExitKey, out PlayerButtons exitButton) && (button & exitButton) == 0 && (g_OldButtons & exitButton) != 0) { Close(_player); }
                 g_OldButtons = button;
             }
         }
@@ -632,23 +635,39 @@ namespace CS2ScreenMenuAPI
         }
         private void ConfigureSettings()
         {
-            MenuType = _config.Settings.MenuType switch
+            if (!_menuTypeExplicitlySet)
             {
-                "Scrollable" => MenuType.Scrollable,
-                "Both" => MenuType.Both,
-                _ => MenuType.KeyPress,
-            };
+                MenuType = _config.Settings.MenuType switch
+                {
+                    "Scrollable" => MenuType.Scrollable,
+                    "Both" => MenuType.Both,
+                    _ => MenuType.KeyPress,
+                };
+            }
             HasExitButon = _config.Settings.HasExitOption;
             ShowResolutionOption = _config.Settings.ShowResolutionOption;
             ShowPageCount = _config.Settings.ShowPageCount;
             ShowDisabledOptionNum = _config.Settings.ShowDisabledOptionNum;
             ShowControlsInfo = _config.Settings.ShowControlsInfo;
+            ConfigureControlsForMenuType();
+        }
+
+        private void ConfigureControlsForMenuType()
+        {
             if (MenuType != MenuType.KeyPress)
             {
                 ScrollUpKey = _config.Controls.ScrollUp;
                 ScrollDownKey = _config.Controls.ScrollDown;
                 SelectKey = _config.Controls.Select;
+                ExitKey = _config.Controls.Exit;
             }
+        }
+
+        public void SetMenuType(MenuType menuType)
+        {
+            MenuType = menuType;
+            _menuTypeExplicitlySet = true;
+            ConfigureControlsForMenuType();
         }
 
         internal int GetEnabledOptionsCountOnCurrentPage()
