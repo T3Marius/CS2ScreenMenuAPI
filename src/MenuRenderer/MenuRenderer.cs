@@ -178,7 +178,7 @@ namespace CS2ScreenMenuAPI
             int startIndex = _menu.CurrentPage * _menu.ItemsPerPage;
             int endIndex = Math.Min(_menu.Options.Count, startIndex + _menu.ItemsPerPage);
             int visibleOptionIndex = 1;
-            int enabledOptionIndex = 0; // Track enabled options separately
+            int enabledOptionIndex = 0;
 
             for (int i = startIndex; i < endIndex; i++)
             {
@@ -186,7 +186,6 @@ namespace CS2ScreenMenuAPI
 
                 bool isFlashingThisItem = _menu._isFlashing && _menu._flashKey == visibleOptionIndex;
 
-                // Only enabled options can be scrolled to
                 bool isScrollingThisItem = !_menu._isFlashing &&
                                            (_menu.MenuType != MenuType.KeyPress) &&
                                            !option.IsDisabled &&
@@ -207,7 +206,6 @@ namespace CS2ScreenMenuAPI
                     writeSimpleLine(option.Text, textStyle);
                 }
 
-                // Only increment enabled index for enabled options
                 if (!option.IsDisabled)
                 {
                     enabledOptionIndex++;
@@ -262,6 +260,7 @@ namespace CS2ScreenMenuAPI
 
                 writeSimpleLine(_player.Localizer("ScrollKeys", _menu.ScrollUpKey, _menu.ScrollDownKey), default);
                 writeSimpleLine(_player.Localizer("SelectKey", _menu.SelectKey), default);
+                writeSimpleLine(_player.Localizer("ExitKey", _menu.ExitKey), default);
             }
         }
         public void DestroyEntities()
