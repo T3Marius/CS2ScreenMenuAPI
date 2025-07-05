@@ -42,6 +42,7 @@ namespace CS2ScreenMenuAPI
         public string ScrollUp { get; set; } = "W";
         public string ScrollDown { get; set; } = "S";
         public string Select { get; set; } = "E";
+        public string Exit { get; set; } = "Tab";
     }
     public class Sounds_Settings
     {
@@ -166,7 +167,8 @@ namespace CS2ScreenMenuAPI
             {
                 ScrollUp = controlsTable["ScrollUp"].ToString()!,
                 ScrollDown = controlsTable["ScrollDown"].ToString()!,
-                Select = controlsTable["Select"].ToString()!
+                Select = controlsTable["Select"].ToString()!,
+                Exit = controlsTable["Exit"].ToString()!
             };
             return controls;
         }
@@ -223,6 +225,7 @@ PositionY = 0.0
 ScrollUp = ""W""
 ScrollDown = ""S""
 Select = ""E""
+Exit = ""Tab""
 
 [Sounds]
 Select = ""menu.Select""
@@ -239,6 +242,7 @@ Next = ""Next""
 Close = ""Close""
 ScrollKeys = ""[{0}/{1}] Scroll""
 SelectKey = ""[{0}] Select""
+ExitKey = ""[{0}] Exit""
 SelectRes = ""Select Your Game Resolution""
 ChangeRes = ""Change Resolution""
 

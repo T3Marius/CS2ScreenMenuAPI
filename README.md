@@ -1,4 +1,15 @@
-﻿# Config
+﻿# CS2ScreenMenuAPI
+
+CS2ScreenMenuAPI is a comprehensive API for creating in-game menus and HUD elements for Counter-Strike 2 servers.
+
+## Features
+
+- **Menu System**: Create interactive menus that appear in the game world
+- **Resolution Support**: Automatically adjust menu positioning based on player resolution
+- **Scrollable or Key Press Navigation**: Use both key presses or scrolling to navigate menus
+- **Database Integration**: Store player preferences for menu positioning
+
+## Config
 ```toml
 
 # Screen Menu Configuration
@@ -29,6 +40,7 @@ PositionY = 0.0
 ScrollUp = "W"
 ScrollDown = "S"
 Select = "E"
+Exit = "Tab"
 
 [Sounds]
 Select = "menu.Select"
@@ -45,6 +57,7 @@ Next = "Next"
 Close = "Close"
 ScrollKeys ="[{0}/{1}] Scroll"
 SelectKey = "[{0}] Select"
+ExitKey = "[{0}] Exit"
 SelectRes = "Select Your Game Resolution"
 ChangeRes = "Change Resolution"
 
@@ -182,10 +195,9 @@ namespace Example
             var keyPressMenu = new CS2ScreenMenuAPI.Menu(player, this)
             {
                 Title = "Only key press menu",
-                MenuType = MenuType.KeyPress,
                 HasExitButon = true
             };
-            
+            keyPressMenu.SetMenuType(MenuType.KeyPress),
             keyPressMenu.AddItem("Key Press Option", (p, option) => 
             {
                 p.PrintToChat("Selected from key press menu!");
@@ -198,9 +210,9 @@ namespace Example
             var scrollMenu = new CS2ScreenMenuAPI.Menu(player, this)
             {
                 Title = "Only Scroll menu",
-                MenuType = MenuType.Scrollable,
                 HasExitButon = true
             };
+            scrollMenu.SetMenuType(MenuType.Scrollable),
             
             scrollMenu.AddItem("Scroll Option", (p, option) => 
             {
@@ -214,9 +226,10 @@ namespace Example
             var bothTypesMenu = new CS2ScreenMenuAPI.Menu(player, this)
             {
                 Title = "Menu with both key press and scrollable",
-                MenuType = MenuType.Both, // This is the default, so it's optional
                 HasExitButon = true
             };
+
+            bothTypesMenu.SetMenuType(MenuType.Both),
             
             bothTypesMenu.AddItem("Option works with both", (p, option) => 
             {
