@@ -4,6 +4,7 @@ using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
+using CounterStrikeSharp.API.Modules.Memory;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
 
 namespace CS2ScreenMenuAPI
@@ -36,6 +37,8 @@ namespace CS2ScreenMenuAPI
         private readonly StringBuilder _backgroundTextSb = new();
         private readonly StringBuilder _backgroundSb = new();
         private readonly StringBuilder _htmlTextSb = new();
+        private readonly Dictionary<ulong, List<CPointWorldText>> _playerRoamingWorldTexts = new();
+        private readonly record struct VectorData(Vector Position, QAngle Angle);
 
         public MenuRenderer(Menu menu, CCSPlayerController player)
         {
@@ -52,6 +55,11 @@ namespace CS2ScreenMenuAPI
 
             var observerInfo = _player.GetObserverInfo();
             bool needsRefresh = ForceRefresh || observerInfo.Mode != _menuCurrentObserverMode || observerInfo.Observing?.Handle != _menuCurrentObserver;
+
+            if (observerInfo.Mode == ObserverMode.Roaming && !needsRefresh)
+            {
+                UpdateRoamingWorldTexts();
+            }
 
             if (needsRefresh)
             {
@@ -79,11 +87,25 @@ namespace CS2ScreenMenuAPI
                 _presentingHtml = true;
             }
         }
+
         private bool DrawWorldText()
         {
             var observerInfo = _player.GetObserverInfo();
-            if (observerInfo.Mode != ObserverMode.FirstPerson) return false;
 
+            if (observerInfo.Mode == ObserverMode.FirstPerson)
+            {
+                return DrawWorldTextFirstPerson(observerInfo);
+            }
+            else if (observerInfo.Mode == ObserverMode.Roaming)
+            {
+                return DrawWorldTextRoaming(observerInfo);
+            }
+
+            return false;
+        }
+
+        private bool DrawWorldTextFirstPerson(ObserverInfo observerInfo)
+        {
             var maybeEyeAngles = observerInfo.GetEyeAngles();
             if (!maybeEyeAngles.HasValue) return false;
             var eyeAngles = maybeEyeAngles.Value;
@@ -139,6 +161,135 @@ namespace CS2ScreenMenuAPI
 
             return true;
         }
+
+        private bool DrawWorldTextRoaming(ObserverInfo observerInfo)
+        {
+            var vectorData = FindVectorDataForFreeCamera(_menuPosition.X, _menuPosition.Y);
+            if (vectorData == null) return false;
+
+            _highlightTextSb.Clear(); _foregroundTextSb.Clear(); _backgroundTextSb.Clear(); _backgroundSb.Clear();
+
+            BuildMenuStrings((text, style, selectIndex) =>
+            {
+                var line = $"{selectIndex}. {text}";
+                _highlightTextSb.AppendLine(style.Highlight ? line : string.Empty);
+                _foregroundTextSb.AppendLine(style.Foreground ? line : string.Empty);
+                _backgroundTextSb.AppendLine(!style.Foreground ? line : string.Empty);
+                _backgroundSb.AppendLine(line);
+            },
+            (text, style) =>
+            {
+                _highlightTextSb.AppendLine(style.Highlight ? text : string.Empty);
+                _foregroundTextSb.AppendLine(style.Foreground ? text : string.Empty);
+                _backgroundTextSb.AppendLine(!style.Foreground ? text : string.Empty);
+                _backgroundSb.AppendLine(text);
+            });
+
+            _menuCurrentObserver = observerInfo.Observing?.Handle ?? nint.Zero;
+            _menuCurrentObserverMode = observerInfo.Mode;
+
+            bool allValid = _highlightText?.IsValid == true && _foregroundText?.IsValid == true && _backgroundText?.IsValid == true && _background?.IsValid == true;
+            if (!allValid)
+            {
+                DestroyEntities();
+                CreateEntities();
+            }
+
+            UpdateEntityWithoutParent(_highlightText!, _highlightTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+            UpdateEntityWithoutParent(_foregroundText!, _foregroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+            UpdateEntityWithoutParent(_backgroundText!, _backgroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+            UpdateEntityWithoutParent(_background!, _backgroundSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+
+            RegisterRoamingWorldTexts();
+
+            return true;
+        }
+
+        private VectorData? FindVectorDataForFreeCamera(float positionX, float positionY)
+        {
+            if (_player.Pawn.Value == null || _player.Pawn.Value.ObserverServices == null)
+                return null;
+
+            CCSPlayerPawn? pawn = _player.Pawn.Value.As<CCSPlayerPawn>();
+            if (pawn == null) return null;
+
+            Vector observerPos = pawn.AbsOrigin ?? new Vector();
+            observerPos += new Vector(0, 0, pawn.ViewOffset.Z);
+
+            QAngle eyeAngles = pawn.EyeAngles;
+
+            Vector forward = new(), right = new(), up = new();
+            NativeAPI.AngleVectors(eyeAngles.Handle, forward.Handle, right.Handle, up.Handle);
+
+            float fov = _player.DesiredFOV == 0 ? 90 : _player.DesiredFOV;
+            if (fov != 90)
+            {
+                float scaleFactor = (float)Math.Tan((fov / 2) * Math.PI / 180) / (float)Math.Tan(45 * Math.PI / 180);
+                positionX *= scaleFactor;
+                positionY *= scaleFactor;
+            }
+
+            Vector offset = forward * 7 + right * positionX + up * positionY;
+
+            QAngle angle = new()
+            {
+                Y = eyeAngles.Y + 270,
+                Z = 90 - eyeAngles.X,
+                X = 0
+            };
+
+            return new VectorData()
+            {
+                Position = observerPos + offset,
+                Angle = angle,
+            };
+        }
+
+        private void UpdateEntityWithoutParent(CPointWorldText ent, string newText, Vector position, QAngle angles, bool updateText = true)
+        {
+            if (updateText) ent.MessageText = newText;
+            ent.Teleport(position, angles, null);
+            if (updateText) Utilities.SetStateChanged(ent, "CPointWorldText", "m_messageText");
+        }
+
+        private void RegisterRoamingWorldTexts()
+        {
+            ulong steamId = _player.SteamID;
+            if (!_playerRoamingWorldTexts.ContainsKey(steamId))
+            {
+                _playerRoamingWorldTexts[steamId] = new List<CPointWorldText>();
+            }
+
+            var entities = _playerRoamingWorldTexts[steamId];
+            entities.Clear();
+
+            if (_highlightText?.IsValid == true) entities.Add(_highlightText);
+            if (_foregroundText?.IsValid == true) entities.Add(_foregroundText);
+            if (_backgroundText?.IsValid == true) entities.Add(_backgroundText);
+            if (_background?.IsValid == true) entities.Add(_background);
+        }
+
+        private void UpdateRoamingWorldTexts()
+        {
+            ulong steamId = _player.SteamID;
+            if (!_playerRoamingWorldTexts.TryGetValue(steamId, out var entities) || entities.Count == 0)
+                return;
+
+            var vectorData = FindVectorDataForFreeCamera(_menuPosition.X, _menuPosition.Y);
+            if (vectorData == null) return;
+
+            foreach (var entity in entities.ToList())
+            {
+                if (!entity.IsValid)
+                {
+                    entities.Remove(entity);
+                    continue;
+                }
+
+                entity.Teleport(vectorData.Value.Position, vectorData.Value.Angle, null);
+            }
+        }
+
         private void DrawHtml()
         {
             _htmlTextSb.Clear();
@@ -263,6 +414,7 @@ namespace CS2ScreenMenuAPI
                 writeSimpleLine(_player.Localizer("ExitKey", _menu.ExitKey), default);
             }
         }
+
         public void DestroyEntities()
         {
             if (_highlightText?.IsValid == true) _highlightText.Remove();
@@ -270,6 +422,12 @@ namespace CS2ScreenMenuAPI
             if (_backgroundText?.IsValid == true) _backgroundText.Remove();
             if (_background?.IsValid == true) _background.Remove();
             _highlightText = _foregroundText = _backgroundText = _background = null;
+
+            ulong steamId = _player.SteamID;
+            if (_playerRoamingWorldTexts.ContainsKey(steamId))
+            {
+                _playerRoamingWorldTexts[steamId].Clear();
+            }
         }
 
         private void CreateEntities()
