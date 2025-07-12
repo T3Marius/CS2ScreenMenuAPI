@@ -23,21 +23,79 @@ namespace CS2ScreenMenuAPI
 
         private MenuRenderer _renderer = null!;
 
+        private bool _hasExitButtonExplicitlySet = false;
+        private bool _showResolutionOptionExplicitlySet = false;
+        private bool _showPageCountExplicitlySet = false;
+        private bool _showControlsInfoExplicitlySet = false;
+        private bool _showDisabledOptionNumExplicitlySet = false;
+
         public Menu? PrevMenu { get; set; } = null;
         public Menu? ParentMenu { get => PrevMenu; set => PrevMenu = value; }
         public Config _config { get; set; } = new Config();
         public string Title { get; set; } = string.Empty;
         public List<IMenuOption> Options { get; } = new();
         public int CurrentPage { get; set; }
-        public bool ShowResolutionOption { get; set; }
+
+        private bool _showResolutionOption;
+        public bool ShowResolutionOption
+        {
+            get => _showResolutionOption;
+            set
+            {
+                _showResolutionOption = value;
+                _showResolutionOptionExplicitlySet = true;
+            }
+        }
+
         public int ItemsPerPage { get; } = 6;
         public PostSelect PostSelect = PostSelect.Nothing;
         public MenuType MenuType = MenuType.KeyPress;
         private bool _menuTypeExplicitlySet = false;
-        public bool HasExitButon { get; set; }
-        public bool ShowPageCount { get; set; }
-        public bool ShowControlsInfo { get; set; }
-        public bool ShowDisabledOptionNum { get; set; }
+
+        private bool _hasExitButon;
+        public bool HasExitButon
+        {
+            get => _hasExitButon;
+            set
+            {
+                _hasExitButon = value;
+                _hasExitButtonExplicitlySet = true;
+            }
+        }
+
+        private bool _showPageCount;
+        public bool ShowPageCount
+        {
+            get => _showPageCount;
+            set
+            {
+                _showPageCount = value;
+                _showPageCountExplicitlySet = true;
+            }
+        }
+
+        private bool _showControlsInfo;
+        public bool ShowControlsInfo
+        {
+            get => _showControlsInfo;
+            set
+            {
+                _showControlsInfo = value;
+                _showControlsInfoExplicitlySet = true;
+            }
+        }
+
+        private bool _showDisabledOptionNum;
+        public bool ShowDisabledOptionNum
+        {
+            get => _showDisabledOptionNum;
+            set
+            {
+                _showDisabledOptionNum = value;
+                _showDisabledOptionNumExplicitlySet = true;
+            }
+        }
+
         public bool IsSubMenu { get; set; } = false;
         public float MenuPositionX { get; set; }
         internal int _currentSelectionIndex = 0;
@@ -633,6 +691,7 @@ namespace CS2ScreenMenuAPI
         {
             _renderer.CheckTransmit(infoList);
         }
+
         private void ConfigureSettings()
         {
             if (!_menuTypeExplicitlySet)
@@ -644,11 +703,23 @@ namespace CS2ScreenMenuAPI
                     _ => MenuType.KeyPress,
                 };
             }
-            HasExitButon = _config.Settings.HasExitOption;
-            ShowResolutionOption = _config.Settings.ShowResolutionOption;
-            ShowPageCount = _config.Settings.ShowPageCount;
-            ShowDisabledOptionNum = _config.Settings.ShowDisabledOptionNum;
-            ShowControlsInfo = _config.Settings.ShowControlsInfo;
+
+            // Only apply config values if properties haven't been explicitly set
+            if (!_hasExitButtonExplicitlySet)
+                _hasExitButon = _config.Settings.HasExitOption;
+
+            if (!_showResolutionOptionExplicitlySet)
+                _showResolutionOption = _config.Settings.ShowResolutionOption;
+
+            if (!_showPageCountExplicitlySet)
+                _showPageCount = _config.Settings.ShowPageCount;
+
+            if (!_showDisabledOptionNumExplicitlySet)
+                _showDisabledOptionNum = _config.Settings.ShowDisabledOptionNum;
+
+            if (!_showControlsInfoExplicitlySet)
+                _showControlsInfo = _config.Settings.ShowControlsInfo;
+
             ConfigureControlsForMenuType();
         }
 
