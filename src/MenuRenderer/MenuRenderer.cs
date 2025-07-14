@@ -4,7 +4,6 @@ using System.Text;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
-using CounterStrikeSharp.API.Modules.Memory;
 using Vector = CounterStrikeSharp.API.Modules.Utils.Vector;
 
 namespace CS2ScreenMenuAPI
@@ -167,6 +166,9 @@ namespace CS2ScreenMenuAPI
             var vectorData = FindVectorDataForFreeCamera(_menuPosition.X, _menuPosition.Y);
             if (vectorData == null) return false;
 
+            // Try to get the player's pawn for parenting in roaming mode
+            var playerPawn = _player.Pawn.Value;
+
             _highlightTextSb.Clear(); _foregroundTextSb.Clear(); _backgroundTextSb.Clear(); _backgroundSb.Clear();
 
             BuildMenuStrings((text, style, selectIndex) =>
@@ -194,13 +196,22 @@ namespace CS2ScreenMenuAPI
                 DestroyEntities();
                 CreateEntities();
             }
+            if (playerPawn != null && playerPawn.IsValid)
+            {
+                UpdateEntityWithParentPawn(_highlightText!, playerPawn, _highlightTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+                UpdateEntityWithParentPawn(_foregroundText!, playerPawn, _foregroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+                UpdateEntityWithParentPawn(_backgroundText!, playerPawn, _backgroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+                UpdateEntityWithParentPawn(_background!, playerPawn, _backgroundSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+            }
+            else
+            {
+                UpdateEntityWithoutParent(_highlightText!, _highlightTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+                UpdateEntityWithoutParent(_foregroundText!, _foregroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+                UpdateEntityWithoutParent(_backgroundText!, _backgroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
+                UpdateEntityWithoutParent(_background!, _backgroundSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
 
-            UpdateEntityWithoutParent(_highlightText!, _highlightTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
-            UpdateEntityWithoutParent(_foregroundText!, _foregroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
-            UpdateEntityWithoutParent(_backgroundText!, _backgroundTextSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
-            UpdateEntityWithoutParent(_background!, _backgroundSb.ToString(), vectorData.Value.Position, vectorData.Value.Angle);
-
-            RegisterRoamingWorldTexts();
+                RegisterRoamingWorldTexts();
+            }
 
             return true;
         }
@@ -249,6 +260,24 @@ namespace CS2ScreenMenuAPI
         {
             if (updateText) ent.MessageText = newText;
             ent.Teleport(position, angles, null);
+            if (updateText) Utilities.SetStateChanged(ent, "CPointWorldText", "m_messageText");
+        }
+
+        private void UpdateEntityWithParentPawn(CPointWorldText ent, CBasePlayerPawn playerPawn, string newText, Vector position, QAngle angles, bool updateText = true)
+        {
+            if (updateText) ent.MessageText = newText;
+            ent.Teleport(position, angles, null);
+
+            // Try to parent to the player's pawn entity
+            try
+            {
+                ent.AcceptInput("SetParent", playerPawn, null, "!activator");
+            }
+            catch
+            {
+                // If parenting fails, continue without parent
+            }
+
             if (updateText) Utilities.SetStateChanged(ent, "CPointWorldText", "m_messageText");
         }
 
