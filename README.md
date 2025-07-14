@@ -11,30 +11,28 @@ CS2ScreenMenuAPI is a comprehensive API for creating in-game menus and HUD eleme
 
 ## Config
 ```toml
-
 # Screen Menu Configuration
+
+[Database]
+Host = "1"
+Name = ""
+User = ""
+Password = ""
+Port = 3306
 
 [Settings]
 FontName = "Tahoma Bold"
 MenuType = "KeyPress"
-Size = 25
+Size = 40
 PositionX = 0
 PositionY = 0
 HasExitOption = true
 ShowResolutionOption = true
 ShowDisabledOptionNum = false
-ShowPageCount = true
+ShowPageCount = false
 FreezePlayer = true
-ShowControlsInfo = false
-ScrollPrefix = "\u2023"
-
-[Settings.Resolutions."1920x1080"]
-PositionX = -9.0
-PositionY = 0.0
-
-[Settings.Resolutions."1440x1080"]
-PositionX = -7.0
-PositionY = 0.0
+FreezePlayerInResolutionMenu = true
+ShowControlsInfo = true
 
 [Controls]
 ScrollUp = "W"
@@ -59,7 +57,7 @@ ScrollKeys ="[{0}/{1}] Scroll"
 SelectKey = "[{0}] Select"
 ExitKey = "[{0}] Exit"
 SelectRes = "Select Your Game Resolution"
-ChangeRes = "Change Resolution"
+ChangeRes = "Adjust Menu Position"
 
 ```
 
