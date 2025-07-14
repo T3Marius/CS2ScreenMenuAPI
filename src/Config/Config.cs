@@ -26,6 +26,7 @@ namespace CS2ScreenMenuAPI
         public bool ShowPageCount { get; set; } = true;
         public bool ShowDisabledOptionNum { get; set; } = true;
         public bool FreezePlayer { get; set; } = true;
+        public bool FreezePlayerInResolutionMenu { get; set; } = true;
         public bool ShowControlsInfo { get; set; } = true;
         public Dictionary<string, Resolution> Resolutions { get; set; } = [];
     }
@@ -141,23 +142,9 @@ namespace CS2ScreenMenuAPI
                 ShowDisabledOptionNum = bool.Parse(settingsTable["ShowDisabledOptionNum"].ToString()!),
                 ShowPageCount = bool.Parse(settingsTable["ShowPageCount"].ToString()!),
                 FreezePlayer = bool.Parse(settingsTable["FreezePlayer"].ToString()!),
+                FreezePlayerInResolutionMenu = bool.Parse(settingsTable["FreezePlayerInResolutionMenu"].ToString()!),
                 ShowControlsInfo = bool.Parse(settingsTable["ShowControlsInfo"].ToString()!)
             };
-
-            if (settingsTable.ContainsKey("Resolutions"))
-            {
-                TomlTable resolutionsTable = (TomlTable)settingsTable["Resolutions"];
-                foreach (var kv in resolutionsTable)
-                {
-                    if (kv.Value is TomlTable resolutionTable)
-                    {
-                        float posX = float.Parse(resolutionTable["PositionX"].ToString()!);
-                        float posY = float.Parse(resolutionTable["PositionY"].ToString()!);
-
-                        settings.Resolutions[kv.Key] = new Resolution(posX, posY);
-                    }
-                }
-            }
 
             return settings;
         }
@@ -210,16 +197,9 @@ ShowResolutionOption = true
 ShowDisabledOptionNum = true
 ShowPageCount = true
 FreezePlayer = true
+FreezePlayerInResolutionMenu = true
 ShowControlsInfo = true
 ScrollPrefix = ""\u2023""
-
-[Settings.Resolutions.""1920x1080""]
-PositionX = -9.0
-PositionY = 0.0
-
-[Settings.Resolutions.""1440x1080""]
-PositionX = -7.0
-PositionY = 0.0
 
 [Controls]
 ScrollUp = ""W""
@@ -244,7 +224,7 @@ ScrollKeys = ""[{0}/{1}] Scroll""
 SelectKey = ""[{0}] Select""
 ExitKey = ""[{0}] Exit""
 SelectRes = ""Select Your Game Resolution""
-ChangeRes = ""Change Resolution""
+ChangeRes = ""Adjust Menu Position""
 
 ";
 

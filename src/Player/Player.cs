@@ -9,6 +9,10 @@ namespace CS2ScreenMenuAPI
 {
     public static class CCSPlayer
     {
+        // Dictionary to store original velocity modifiers for frozen players
+        private static readonly Dictionary<CCSPlayerController, float> _originalVelocityModifiers = new();
+        private static readonly HashSet<CCSPlayerController> _frozenPlayers = new();
+        private static readonly HashSet<CCSPlayerController> _frozenInResolutionMenu = new();
         public static string Localizer(this CCSPlayerController player, string key, params string[] args)
         {
             CultureInfo cultureInfo = CultureInfo.CurrentCulture;
@@ -117,11 +121,89 @@ namespace CS2ScreenMenuAPI
 
         public static void Freeze(this CCSPlayerController player)
         {
-            player.PlayerPawn.Value?.ChangeMoveType(MoveType_t.MOVETYPE_OBSOLETE);
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null) return;
+
+            if (!_originalVelocityModifiers.ContainsKey(player))
+            {
+                _originalVelocityModifiers[player] = pawn.VelocityModifier;
+            }
+
+            _frozenPlayers.Add(player);
         }
+
         public static void Unfreeze(this CCSPlayerController player)
         {
-            player.PlayerPawn.Value?.ChangeMoveType(MoveType_t.MOVETYPE_WALK);
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null) return;
+
+            _frozenPlayers.Remove(player);
+
+            if (_originalVelocityModifiers.TryGetValue(player, out float originalVelocity))
+            {
+                pawn.VelocityModifier = originalVelocity;
+                _originalVelocityModifiers.Remove(player);
+            }
+        }
+
+        public static void FreezeInResolutionMenu(this CCSPlayerController player)
+        {
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null) return;
+
+            Config config = ConfigLoader.Load();
+            if (!config.Settings.FreezePlayerInResolutionMenu) return;
+
+            if (!_originalVelocityModifiers.ContainsKey(player))
+            {
+                _originalVelocityModifiers[player] = pawn.VelocityModifier;
+            }
+
+            _frozenInResolutionMenu.Add(player);
+        }
+
+        public static void UnfreezeFromResolutionMenu(this CCSPlayerController player)
+        {
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null) return;
+
+            _frozenInResolutionMenu.Remove(player);
+
+            if (!_frozenPlayers.Contains(player) && _originalVelocityModifiers.TryGetValue(player, out float originalVelocity))
+            {
+                pawn.VelocityModifier = originalVelocity;
+                _originalVelocityModifiers.Remove(player);
+            }
+        }
+
+        public static void UpdateFrozenPlayers()
+        {
+            foreach (var player in _frozenPlayers.Concat(_frozenInResolutionMenu))
+            {
+                var pawn = player.PlayerPawn.Value;
+                if (pawn != null)
+                {
+                    pawn.VelocityModifier = 0f;
+                }
+            }
+            foreach (var player in Utilities.GetPlayers())
+            {
+                if (MenuAPI.GetActiveMenu(player)!.MenuType == MenuType.Scrollable && MenuAPI.GetActiveMenu(player)!._config.Settings.FreezePlayer)
+                {
+                    var pawn = player.PlayerPawn.Value;
+                    if (pawn != null)
+                    {
+                        pawn.VelocityModifier = 0f;
+                    }
+                }
+            }
+        }
+
+        public static void CleanupFrozenPlayer(CCSPlayerController player)
+        {
+            _frozenPlayers.Remove(player);
+            _frozenInResolutionMenu.Remove(player);
+            _originalVelocityModifiers.Remove(player);
         }
         public static void ChangeMoveType(this CBasePlayerPawn pawn, MoveType_t movetype)
         {

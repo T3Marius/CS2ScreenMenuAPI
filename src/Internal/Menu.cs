@@ -219,6 +219,13 @@ namespace CS2ScreenMenuAPI
                 _renderer.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
                 MenuAPI.SetActiveMenu(player, this);
                 RegisterKeyCommands();
+
+                // Freeze player if using scrollable menu
+                if (MenuType != MenuType.KeyPress && _config.Settings.FreezePlayer)
+                {
+                    player.Freeze();
+                }
+
                 Display();
             }
             else if (_config.Settings.Resolutions.Count > 0)
@@ -291,7 +298,7 @@ namespace CS2ScreenMenuAPI
         }
         public void OnKeyPress(CCSPlayerController player, int key)
         {
-            if (_isClosed || _isFlashing) return;
+            if (_isClosed || _isFlashing || _isResolutionMenuShown) return;
 
             if (MenuType == MenuType.Scrollable)
             {
@@ -309,25 +316,17 @@ namespace CS2ScreenMenuAPI
                             Menu? prevMenu = PrevMenu;
                             bool isSubMenu = IsSubMenu;
 
-                            Close(player);
+                            _isResolutionMenuShown = true;
                             PlaySelectSound();
 
                             CreateResolutionMenu(player, _plugin, () =>
                             {
-                                if (isSubMenu && prevMenu != null)
-                                {
-                                    prevMenu._isClosed = false;
-                                    MenuAPI.SetActiveMenu(_player, prevMenu);
-                                    prevMenu.RegisterKeyCommands();
-                                    prevMenu.Display();
-                                }
-                                else
-                                {
-                                    currentMenu._isClosed = false;
-                                    MenuAPI.SetActiveMenu(_player, currentMenu);
-                                    currentMenu.RegisterKeyCommands();
-                                    currentMenu.Display();
-                                }
+                                _isResolutionMenuShown = false;
+                                Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
+                                MenuPositionX = playerRes.PositionX;
+                                _renderer!.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
+                                _renderer.ForceRefresh = true;
+                                Display();
                             });
                         }
                         break;
@@ -425,28 +424,16 @@ namespace CS2ScreenMenuAPI
                 {
                     PlaySelectSound();
 
-                    Menu currentMenu = this;
-                    Menu? prevMenu = PrevMenu;
-                    bool isSubMenu = IsSubMenu;
-
-                    Close(_player);
+                    _isResolutionMenuShown = true;
 
                     CreateResolutionMenu(_player, _plugin, () =>
                     {
-                        if (isSubMenu && prevMenu != null)
-                        {
-                            prevMenu._isClosed = false;
-                            MenuAPI.SetActiveMenu(_player, prevMenu);
-                            prevMenu.RegisterKeyCommands();
-                            prevMenu.Display();
-                        }
-                        else
-                        {
-                            currentMenu._isClosed = false;
-                            MenuAPI.SetActiveMenu(_player, currentMenu);
-                            currentMenu.RegisterKeyCommands();
-                            currentMenu.Display();
-                        }
+                        _isResolutionMenuShown = false;
+                        Resolution playerRes = ResolutionDatabase.GetPlayerResolution(_player!);
+                        MenuPositionX = playerRes.PositionX;
+                        _renderer!.MenuPosition = _renderer.MenuPosition with { X = playerRes.PositionX };
+                        _renderer.ForceRefresh = true;
+                        Display();
                     });
                     return;
                 }
@@ -617,6 +604,11 @@ namespace CS2ScreenMenuAPI
             _renderer.DestroyEntities();
             UnregisterKeyCommands();
             MenuAPI.SetActiveMenu(player, null);
+            CleanupPlayerResolutionMenu(player);
+
+
+            CCSPlayer.CleanupFrozenPlayer(player);
+
             if (MenuType != MenuType.KeyPress && _config.Settings.FreezePlayer)
             {
                 player.Unfreeze();
@@ -661,7 +653,12 @@ namespace CS2ScreenMenuAPI
         }
         private HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
         {
-            if (@event.Userid == _player) Close(_player);
+            if (@event.Userid == _player)
+            {
+                CCSPlayer.CleanupFrozenPlayer(_player);
+                CleanupPlayerResolutionMenu(_player);
+                Close(_player);
+            }
             return HookResult.Continue;
         }
 
@@ -674,7 +671,13 @@ namespace CS2ScreenMenuAPI
             }
             if (_isClosed) { Close(_player); return; }
 
+            if (MenuType != MenuType.KeyPress)
+                CCSPlayer.UpdateFrozenPlayers();
+
             _renderer.Tick();
+
+            if (_isResolutionMenuShown)
+                return;
 
             if (MenuType != MenuType.KeyPress)
             {
@@ -704,7 +707,6 @@ namespace CS2ScreenMenuAPI
                 };
             }
 
-            // Only apply config values if properties haven't been explicitly set
             if (!_hasExitButtonExplicitlySet)
                 _hasExitButon = _config.Settings.HasExitOption;
 
