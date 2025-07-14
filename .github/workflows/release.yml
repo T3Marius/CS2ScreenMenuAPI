@@ -1,0 +1,102 @@
+name: Create Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build project
+      run: dotnet build --configuration Release --no-restore
+      
+    - name: Get version
+      id: get_version
+      run: |
+        if ("${{ github.ref_type }}" -eq "tag") {
+          $version = "${{ github.ref_name }}"
+        } elseif ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $version = "${{ github.event.inputs.version }}"
+        } else {
+          $version = "v$(Get-Date -Format 'yyyy.MM.dd')-$(echo ${{ github.sha }} | Select-Object -First 7)"
+        }
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Release version: $version"
+      shell: powershell
+      
+    - name: Create release zip
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $zipName = "CS2ScreenMenuAPI-$version.zip"
+        
+        # Create the zip file from Release folder
+        if (Test-Path "Release") {
+          Compress-Archive -Path "Release\*" -DestinationPath $zipName -CompressionLevel Optimal
+          echo "Created zip file: $zipName"
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "Release folder not found!"
+          exit 1
+        }
+      shell: powershell
+      id: create_zip
+      
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: CS2ScreenMenuAPI ${{ steps.get_version.outputs.VERSION }}
+        body: |
+          ## CS2ScreenMenuAPI Release ${{ steps.get_version.outputs.VERSION }}
+          
+          ### Changes
+          - Automatic release created from commit ${{ github.sha }}
+          
+          ### Installation
+          1. Download the CS2ScreenMenuAPI zip file below
+          2. Extract the contents to your CounterStrikeSharp plugins directory
+          3. Configure the plugin according to the documentation
+          
+          ### Files
+          - `CS2ScreenMenuAPI-${{ steps.get_version.outputs.VERSION }}.zip` - Complete plugin package
+        draft: false
+        prerelease: false
+        
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./${{ steps.create_zip.outputs.ZIP_NAME }}
+        asset_name: ${{ steps.create_zip.outputs.ZIP_NAME }}
+        asset_content_type: application/zip

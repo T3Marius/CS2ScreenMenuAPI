@@ -1,0 +1,120 @@
+name: Create Release (Modern)
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build project
+      run: dotnet build --configuration Release --no-restore
+      
+    - name: Get version and create zip
+      id: prepare_release
+      run: |
+        # Determine version
+        if ("${{ github.ref_type }}" -eq "tag") {
+          $version = "${{ github.ref_name }}"
+        } elseif ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $version = "${{ github.event.inputs.version }}"
+        } else {
+          $shortSha = "${{ github.sha }}".Substring(0, 7)
+          $version = "v$(Get-Date -Format 'yyyy.MM.dd')-$shortSha"
+        }
+        
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Release version: $version"
+        
+        # Create the zip file
+        $zipName = "CS2ScreenMenuAPI.zip"
+        
+        if (Test-Path "Release") {
+          Compress-Archive -Path "Release\*" -DestinationPath $zipName -CompressionLevel Optimal
+          echo "Created zip file: $zipName"
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
+          
+          # Get zip file size for release notes
+          $zipSize = (Get-Item $zipName).Length
+          $zipSizeMB = [math]::Round($zipSize / 1MB, 2)
+          echo "ZIP_SIZE=$zipSizeMB MB" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "Release folder not found!"
+          exit 1
+        }
+      shell: powershell
+      
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      run: |
+        $version = "${{ steps.prepare_release.outputs.VERSION }}"
+        $zipName = "${{ steps.prepare_release.outputs.ZIP_NAME }}"
+        $zipSize = "${{ steps.prepare_release.outputs.ZIP_SIZE }}"
+        
+        # Create release notes
+        $releaseNotes = @"
+        # Update | 4.4
+        - **menu**: resolution menu with a menu that allows you to directly change menu position with A-D.
+        - **menu-renderer**: improved roaming case where menu teleported, it now teleports ONLY if player moves the camera.
+        - **scrollable-menu**: improved freeze-unfreeze function to avoid afk kick
+        
+        ## CS2ScreenMenuAPI Release $version
+        
+        ### 📦 What's Included
+        - Complete CS2ScreenMenuAPI plugin package
+        - All necessary dependencies and configurations
+        - Ready-to-use plugin files
+        
+        ### 🚀 Installation
+        1. Download the ``CS2ScreenMenuAPI.zip`` file below
+        2. Extract the contents to your CounterStrikeSharp plugins directory
+        3. Configure the plugin according to the documentation in the README
+        
+        ### 📊 Release Info
+        - **Version:** $version
+        - **Build Date:** $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')
+        - **Commit:** ${{ github.sha }}
+        - **Package Size:** $zipSize
+        
+        ### 🔧 Technical Details
+        - Built with .NET 8.0
+        - Compatible with CounterStrikeSharp
+        - Includes all required dependencies
+        
+        ---
+        *This release was automatically generated from the latest code.*
+        "@
+        
+        # Create the release
+        gh release create $version $zipName `
+          --title "CS2ScreenMenuAPI $version" `
+          --notes $releaseNotes `
+          --latest
+      shell: powershell
