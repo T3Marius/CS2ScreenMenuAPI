@@ -31,10 +31,10 @@ jobs:
         dotnet-version: '8.0.x'
         
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore CS2ScreenMenuAPI.csproj
       
     - name: Build project
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build CS2ScreenMenuAPI.csproj --configuration Release --no-restore
       
     - name: Get version and create zip
       id: prepare_release
