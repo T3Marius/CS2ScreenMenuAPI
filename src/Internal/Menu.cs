@@ -193,15 +193,20 @@ namespace CS2ScreenMenuAPI
                 });
             }
         }
-        public void AddItem(string text, Action<CCSPlayerController, IMenuOption> callback, bool disabled = false)
+        public MenuOption AddItem(string text, Action<CCSPlayerController, IMenuOption> callback, bool disabled = false)
         {
-            Options.Add(new MenuOption { Text = text, Callback = callback, IsDisabled = disabled });
+            var menuOption = new MenuOption { Text = text, Callback = callback, IsDisabled = disabled };
+            Options.Add(menuOption);
             if (_renderer != null) _renderer.ForceRefresh = true;
+            return menuOption;
         }
-        public void AddSpacer()
+
+        public SpacerOption AddSpacer(string text = "")
         {
-            Options.Add(new SpacerOption());
+            var spacerOption = new SpacerOption { Text = text };
+            Options.Add(spacerOption);
             if (_renderer != null) _renderer.ForceRefresh = true;
+            return spacerOption;
         }
         private void Initialize(CCSPlayerController player)
         {
