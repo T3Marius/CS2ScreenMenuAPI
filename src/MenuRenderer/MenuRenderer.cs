@@ -20,7 +20,6 @@ namespace CS2ScreenMenuAPI
         private nint? _createdForPawn = null;
         public bool ForceRefresh = true;
         private bool _presentingHtml = false;
-        private const float FADE_DURATION = 0.1f;
 
         private string? _htmlContent = null;
         private nint _menuCurrentObserver = nint.Zero;
@@ -392,11 +391,6 @@ namespace CS2ScreenMenuAPI
                 }
             }
 
-            int itemsOnPage = endIndex - startIndex;
-            for (int i = 0; i < _menu.ItemsPerPage - itemsOnPage; i++)
-            {
-                writeSimpleLine(" ", default);
-            }
             writeSimpleLine(" ", default);
 
             bool showBackButton = _menu.CurrentPage > 0 || (_menu.IsSubMenu && _menu.PrevMenu != null);
