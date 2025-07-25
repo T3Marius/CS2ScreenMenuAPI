@@ -239,6 +239,32 @@ namespace Example
 }
 ```
 
+# Storing items and spacers to change them later:
+```c#
+    [ConsoleCommand("css_menuspacer")]
+    public void MenuSpacer(CCSPlayerController player, CommandInfo info)
+    {
+        if (player == null)
+            return;
+
+        Menu menu = new Menu(this)
+        {
+            Title = "Test Spacer Menu"
+        };
+
+        var spacer1 = menu.AddSpacer("Spacer Test"); // we store this in a variable
+        menu.AddItem("Change Spacer Text", (p, o) =>
+        {
+            spacer1.Text = "Changed Spacer Text"; // then just change the text here then refresh.
+            p.PrintToChat("Spacer text changed!");
+
+            menu.Refresh();
+        });
+
+        menu.Display(player);
+    }
+```
+
 You can use this API in your project by installing it from Manage NuGet Packages or add it with this command
 ```cmd
 dotnet add package CS2ScreenMenuAPI
