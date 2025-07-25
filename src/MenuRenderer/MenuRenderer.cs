@@ -384,7 +384,12 @@ namespace CS2ScreenMenuAPI
 
                 if (option is SpacerOption)
                 {
-                    writeSimpleLine("", default);
+                    if (string.IsNullOrEmpty(option.Text))
+                    {
+                        writeSimpleLine(" ", default);
+                    }
+                    else
+                        writeSimpleLine(option.Text, new TextStyling {  Foreground = false });
                     continue;
                 }
 
