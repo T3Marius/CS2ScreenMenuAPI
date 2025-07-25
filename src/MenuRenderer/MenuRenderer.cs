@@ -354,17 +354,43 @@ namespace CS2ScreenMenuAPI
         {
             writeSimpleLine(_menu.Title, new TextStyling { Foreground = false });
 
+            var nonSpacerOptions = _menu.Options.Where(o => !(o is SpacerOption)).ToList();
             int startIndex = _menu.CurrentPage * _menu.ItemsPerPage;
-            int endIndex = Math.Min(_menu.Options.Count, startIndex + _menu.ItemsPerPage);
+            int endIndex = Math.Min(nonSpacerOptions.Count, startIndex + _menu.ItemsPerPage);
+
+            int actualStartIndex = 0;
+            int nonSpacersSeen = 0;
+
+            for (int i = 0; i < _menu.Options.Count && nonSpacersSeen < startIndex; i++)
+            {
+                if (!(_menu.Options[i] is SpacerOption))
+                {
+                    nonSpacersSeen++;
+                }
+                if (nonSpacersSeen == startIndex)
+                {
+                    actualStartIndex = i;
+                    break;
+                }
+            }
+
             int visibleOptionIndex = 1;
             int enabledOptionIndex = 0;
+            int nonSpacersShown = 0;
 
-            for (int i = startIndex; i < endIndex; i++)
+            for (int i = actualStartIndex; i < _menu.Options.Count && nonSpacersShown < _menu.ItemsPerPage; i++)
             {
                 var option = _menu.Options[i];
 
-                bool isFlashingThisItem = _menu._isFlashing && _menu._flashKey == visibleOptionIndex;
+                if (option is SpacerOption)
+                {
+                    writeSimpleLine("", default);
+                    continue;
+                }
 
+                nonSpacersShown++;
+
+                bool isFlashingThisItem = _menu._isFlashing && _menu._flashKey == visibleOptionIndex;
                 bool isScrollingThisItem = !_menu._isFlashing &&
                                            (_menu.MenuType != MenuType.KeyPress) &&
                                            !option.IsDisabled &&

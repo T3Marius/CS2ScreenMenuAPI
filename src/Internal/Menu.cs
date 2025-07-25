@@ -198,6 +198,11 @@ namespace CS2ScreenMenuAPI
             Options.Add(new MenuOption { Text = text, Callback = callback, IsDisabled = disabled });
             if (_renderer != null) _renderer.ForceRefresh = true;
         }
+        public void AddSpacer()
+        {
+            Options.Add(new SpacerOption());
+            if (_renderer != null) _renderer.ForceRefresh = true;
+        }
         private void Initialize(CCSPlayerController player)
         {
             _player = player;
@@ -360,16 +365,20 @@ namespace CS2ScreenMenuAPI
 
             if (_currentSelectionIndex < enabledOptionsCount)
             {
+                var nonSpacerOptions = Options.Where(o => !(o is SpacerOption)).ToList();
                 int startIndex = CurrentPage * ItemsPerPage;
+                int endIndex = Math.Min(nonSpacerOptions.Count, startIndex + ItemsPerPage);
+
                 int enabledIndex = 0;
 
-                for (int i = startIndex; i < Math.Min(Options.Count, startIndex + ItemsPerPage); i++)
+                for (int i = startIndex; i < endIndex; i++)
                 {
-                    if (!Options[i].IsDisabled)
+                    var option = nonSpacerOptions[i];
+
+                    if (!option.IsDisabled)
                     {
                         if (enabledIndex == _currentSelectionIndex)
                         {
-                            var option = Options[i];
                             var subMenu = (option is MenuOption menuOption) ? menuOption.SubMenu : null;
 
                             if (subMenu != null)
@@ -377,7 +386,6 @@ namespace CS2ScreenMenuAPI
                                 PlaySelectSound();
                                 subMenu.PrevMenu = this;
                                 subMenu.IsSubMenu = true;
-
                                 Close(this._player);
                                 Server.NextFrame(() =>
                                 {
@@ -423,9 +431,7 @@ namespace CS2ScreenMenuAPI
                 if (ShowResolutionOption && navCount++ == navIndex)
                 {
                     PlaySelectSound();
-
                     _isResolutionMenuShown = true;
-
                     CreateResolutionMenu(_player, _plugin, () =>
                     {
                         _isResolutionMenuShown = false;
@@ -441,19 +447,21 @@ namespace CS2ScreenMenuAPI
         }
         private void HandleOptionSelection(CCSPlayerController player, int key)
         {
+            var nonSpacerOptions = Options.Where(o => !(o is SpacerOption)).ToList();
             int startIndex = CurrentPage * ItemsPerPage;
-            int endIndex = Math.Min(Options.Count, startIndex + ItemsPerPage);
-            Dictionary<int, int> displayedNumberToOptionIndex = new Dictionary<int, int>();
+            int endIndex = Math.Min(nonSpacerOptions.Count, startIndex + ItemsPerPage);
+
+            Dictionary<int, IMenuOption> displayedNumberToOption = new Dictionary<int, IMenuOption>();
 
             int displayedNumber = 1;
 
             for (int i = startIndex; i < endIndex; i++)
             {
-                var option = Options[i];
+                var option = nonSpacerOptions[i];
 
                 if (!option.IsDisabled)
                 {
-                    displayedNumberToOptionIndex[displayedNumber++] = i;
+                    displayedNumberToOption[displayedNumber++] = option;
                 }
                 else if (ShowDisabledOptionNum)
                 {
@@ -461,15 +469,16 @@ namespace CS2ScreenMenuAPI
                 }
             }
 
-            if (displayedNumberToOptionIndex.ContainsKey(key))
+            if (displayedNumberToOption.ContainsKey(key))
             {
-                int optionIndex = displayedNumberToOptionIndex[key];
-                var option = Options[optionIndex];
+                var option = displayedNumberToOption[key];
                 Menu? subMenu = null;
+
                 if (option is MenuOption menuOption)
                 {
                     subMenu = menuOption.SubMenu;
                 }
+
                 if (subMenu != null)
                 {
                     PlaySelectSound();
@@ -745,17 +754,24 @@ namespace CS2ScreenMenuAPI
 
         internal int GetEnabledOptionsCountOnCurrentPage()
         {
+            var nonSpacerOptions = Options.Where(o => !(o is SpacerOption)).ToList();
             int startIndex = CurrentPage * ItemsPerPage;
-            int endIndex = Math.Min(Options.Count, startIndex + ItemsPerPage);
+            int endIndex = Math.Min(nonSpacerOptions.Count, startIndex + ItemsPerPage);
+
             int count = 0;
             for (int i = startIndex; i < endIndex; i++)
             {
-                if (!Options[i].IsDisabled) count++;
+                if (!nonSpacerOptions[i].IsDisabled)
+                    count++;
             }
             return count;
         }
 
-        internal int GetMaxPage() => (int)Math.Ceiling(Options.Count / (double)ItemsPerPage) - 1;
+        internal int GetMaxPage()
+        {
+            int nonSpacerCount = Options.Count(option => !(option is SpacerOption));
+            return Math.Max(0, (int)Math.Ceiling(nonSpacerCount / (double)ItemsPerPage) - 1);
+        }
         private void HandleInstantFlash(int key, Action onFlashed)
         {
 

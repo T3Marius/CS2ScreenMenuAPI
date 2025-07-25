@@ -8,4 +8,5 @@ namespace CS2ScreenMenuAPI
         bool IsDisabled { get; set; }
         Action<CCSPlayerController, IMenuOption> Callback { get; set; }
     }
+
 }
